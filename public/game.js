@@ -359,65 +359,219 @@ function irParaEscutarOuPraticar() {
 }
 
 /* ============================================================
-   Fase Diálogo (conversa simples — ler e ouvir)
+   Fase Diálogo (INTERATIVA) — o personagem fala, você responde
+   montando a frase (arrastar palavras) ou falando no microfone.
    ============================================================ */
-function renderDialogo() {
-  const d = jogo.dialogo;
-  $("dialogo-titulo").textContent = d.titulo || "Diálogo";
 
-  const cont = $("dialogo-linhas");
-  limpar(cont);
-
-  // define o lado de cada personagem: o 1º que fala fica à esquerda.
-  const lados = {};
-  d.linhas.forEach((l) => {
-    const quem = l.quem || "A";
-    if (!(quem in lados)) lados[quem] = Object.keys(lados).length === 0 ? "esq" : "dir";
-  });
-
-  d.linhas.forEach((l, i) => {
-    const bolha = document.createElement("div");
-    bolha.className = `bolha ${lados[l.quem || "A"] || "esq"}`;
-    bolha.dataset.i = i;
-
-    const quem = document.createElement("div");
-    quem.className = "bolha-quem";
-    quem.textContent = l.quem || "";
-    const en = document.createElement("div");
-    en.className = "bolha-en";
-    en.textContent = l.en || "";
-    const pt = document.createElement("div");
-    pt.className = "bolha-pt";
-    pt.textContent = l.pt || "";
-    const audio = document.createElement("button");
-    audio.type = "button";
-    audio.className = "bolha-audio";
-    audio.textContent = "🔊";
-    audio.setAttribute("aria-label", "Ouvir esta fala");
-    audio.addEventListener("click", () => ctx.speak(l.en));
-
-    bolha.append(quem, en, pt, audio);
-    cont.appendChild(bolha);
-  });
-
-  $("btn-dialogo-ouvir").onclick = () => tocarDialogo();
-  $("btn-dialogo-continuar").onclick = () => irParaEscutarOuPraticar();
+// É a vez do aluno? (campo voce, ou o "quem" indica "você")
+function ehVoce(l) {
+  if (typeof l.voce === "boolean") return l.voce;
+  return /^(you|voc[eê]|eu|me|b|aluno|student)$/i.test((l.quem || "").trim());
 }
 
-function tocarDialogo() {
-  const cont = $("dialogo-linhas");
-  const bolhas = [...cont.querySelectorAll(".bolha")];
-  ctx.speakDialogo(
-    jogo.dialogo.linhas,
-    (i) => {
-      bolhas.forEach((b) => b.classList.remove("falando"));
-      if (i >= 0 && bolhas[i]) {
-        bolhas[i].classList.add("falando");
-        bolhas[i].scrollIntoView({ block: "center", behavior: "smooth" });
-      }
-    },
-    () => bolhas.forEach((b) => b.classList.remove("falando"))
-  );
+function renderDialogo() {
+  $("dialogo-titulo").textContent = jogo.dialogo.titulo || "Diálogo";
+  limpar($("dialogo-chat"));
+  jogo.dialogoIdx = 0;
+  jogo.dialogoAcertos = 0;
+  avancarDialogo();
+}
+
+function appendBolha(l, lado) {
+  const chat = $("dialogo-chat");
+  const bolha = document.createElement("div");
+  bolha.className = `bolha ${lado}`;
+
+  const quem = document.createElement("div");
+  quem.className = "bolha-quem";
+  quem.textContent = l.quem || (lado === "dir" ? "Você" : "");
+  const en = document.createElement("div");
+  en.className = "bolha-en";
+  en.textContent = l.en || "";
+  const pt = document.createElement("div");
+  pt.className = "bolha-pt";
+  pt.textContent = l.pt || "";
+  const audio = document.createElement("button");
+  audio.type = "button";
+  audio.className = "bolha-audio";
+  audio.textContent = "🔊";
+  audio.setAttribute("aria-label", "Ouvir esta fala");
+  audio.addEventListener("click", () => ctx.speak(l.en));
+
+  bolha.append(quem, en, pt, audio);
+  chat.appendChild(bolha);
+  bolha.scrollIntoView({ block: "end", behavior: "smooth" });
+  return bolha;
+}
+
+function avancarDialogo() {
+  const linhas = jogo.dialogo.linhas;
+  const i = jogo.dialogoIdx;
+  const resp = $("dialogo-responder");
+  const cont = $("btn-dialogo-continuar");
+
+  if (i >= linhas.length) {
+    resp.hidden = true;
+    cont.hidden = false;
+    cont.textContent = "Continuar ➡️";
+    cont.onclick = () => irParaEscutarOuPraticar();
+    return;
+  }
+
+  const l = linhas[i];
+  if (!ehVoce(l)) {
+    // Turno do personagem: mostra a fala e toca o áudio.
+    resp.hidden = true;
+    appendBolha(l, "esq");
+    ctx.speak(l.en);
+    cont.hidden = false;
+    const proxEhVoce = linhas[i + 1] && ehVoce(linhas[i + 1]);
+    cont.textContent = proxEhVoce ? "Responder ✍️" : "Continuar ➡️";
+    cont.onclick = () => {
+      jogo.dialogoIdx++;
+      avancarDialogo();
+    };
+  } else {
+    // Turno do aluno: montar a resposta.
+    cont.hidden = true;
+    mostrarResponder(l);
+  }
+}
+
+function mostrarResponder(l) {
+  const resp = $("dialogo-responder");
+  resp.hidden = false;
+  $("dialogo-hint").textContent = `💬 Sua vez — responda: "${l.pt || ""}"`;
+
+  const fb = $("dialogo-feedback");
+  fb.className = "feedback";
+  limpar(fb);
+
+  const palavras = palavrasDe(l.en);
+  const respArea = $("dialogo-resposta");
+  const banco = $("dialogo-banco");
+  const estado = { resposta: [], disp: [], travado: false };
+  let emb = embaralhar(palavras);
+  let t = 0;
+  while (emb.join(" ") === palavras.join(" ") && t++ < 6) emb = embaralhar(palavras);
+  estado.disp = emb.map((p) => ({ p, usado: false }));
+
+  function chip(texto, onClick) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.textContent = texto;
+    b.addEventListener("click", onClick);
+    return b;
+  }
+  function redraw() {
+    limpar(respArea);
+    limpar(banco);
+    estado.resposta.forEach((w, ri) => {
+      respArea.appendChild(
+        chip(w.p, () => {
+          if (estado.travado) return;
+          w.usado = false;
+          estado.resposta.splice(ri, 1);
+          redraw();
+        })
+      );
+    });
+    estado.disp.forEach((w) => {
+      if (w.usado) return;
+      banco.appendChild(
+        chip(w.p, () => {
+          if (estado.travado) return;
+          w.usado = true;
+          estado.resposta.push(w);
+          redraw();
+        })
+      );
+    });
+  }
+  redraw();
+
+  $("btn-dialogo-verificar").onclick = () => {
+    const montada = estado.resposta.map((w) => w.p).join(" ");
+    if (estado.resposta.length !== palavras.length) {
+      fb.className = "feedback erro";
+      fb.textContent = "Use todas as palavras.";
+      return;
+    }
+    if (normalizar(montada) === normalizar(l.en)) {
+      concluirResposta(l, true);
+    } else {
+      fb.className = "feedback erro";
+      fb.textContent = "❌ Quase! Tente reordenar as palavras.";
+    }
+  };
+
+  $("btn-dialogo-mic").onclick = () => falarResposta(l);
+  $("btn-dialogo-ver").onclick = () => concluirResposta(l, false);
+}
+
+function concluirResposta(l, comPonto) {
+  appendBolha(l, "dir");
+  if (comPonto) {
+    jogo.pontos += PONTOS_QUIZ;
+    jogo.dialogoAcertos++;
+  }
+  $("dialogo-responder").hidden = true;
+  jogo.dialogoIdx++;
+  avancarDialogo();
+}
+
+function falarResposta(l) {
+  const fb = $("dialogo-feedback");
+  if (!reconhecimentoDisponivel()) {
+    fb.className = "feedback";
+    fb.textContent = "🎧 Voz indisponível aqui. Monte a resposta com as palavras.";
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new SR();
+  rec.lang = "en-US";
+  rec.interimResults = false;
+  rec.maxAlternatives = 3;
+
+  const btn = $("btn-dialogo-mic");
+  btn.textContent = "🔴 Ouvindo…";
+  btn.disabled = true;
+  fb.className = "feedback";
+  fb.textContent = "";
+
+  rec.onresult = (e) => {
+    const alts = [...e.results[0]].map((r) => r.transcript);
+    const melhor = Math.max(...alts.map((a) => razaoFala(a, l.en)));
+    btn.textContent = "🎤 Falar";
+    btn.disabled = false;
+    if (melhor >= 0.6) {
+      concluirResposta(l, true);
+    } else {
+      fb.className = "feedback erro";
+      const s = document.createElement("span");
+      s.textContent = `Ouvi: "${alts[0] || "—"}". Tente de novo ou monte com as palavras.`;
+      fb.append(s);
+    }
+  };
+  rec.onerror = () => {
+    fb.className = "feedback erro";
+    fb.textContent = "Não consegui ouvir. Tente de novo.";
+    btn.textContent = "🎤 Falar";
+    btn.disabled = false;
+  };
+  rec.onend = () => {
+    if (btn.textContent === "🔴 Ouvindo…") {
+      btn.textContent = "🎤 Falar";
+      btn.disabled = false;
+    }
+  };
+  try {
+    rec.start();
+  } catch {
+    btn.textContent = "🎤 Falar";
+    btn.disabled = false;
+  }
 }
 
 function renderEscutar() {
