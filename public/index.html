@@ -21,6 +21,13 @@
         <p class="subtitulo">Aprenda inglês jogando missões do seu jeito.</p>
       </header>
 
+      <!-- Dica de instalação: card no fluxo, aparece só quando instalável -->
+      <div id="dica-instalar" class="dica-instalar" hidden>
+        <span id="dica-instalar-texto">📲 Instale o jogo para abrir como um app.</span>
+        <button id="btn-instalar" class="btn-instalar" type="button" hidden>Instalar</button>
+        <button id="btn-fechar-dica" class="btn-icone" type="button" aria-label="Fechar dica">✕</button>
+      </div>
+
       <label class="campo">
         <span class="campo-label">O que você estudou na última aula?</span>
         <input
@@ -66,6 +73,7 @@
         <div id="carregando-erro" hidden>
           <p id="carregando-erro-msg" class="aviso" role="alert"></p>
           <button id="btn-tentar-novo" class="btn btn-primario" type="button">🔄 Tentar de novo</button>
+          <button id="btn-exemplo" class="btn btn-destaque" type="button">🎮 Jogar missão de exemplo</button>
           <button id="btn-voltar-erro" class="btn btn-secundario" type="button">← Início</button>
         </div>
       </div>
@@ -142,12 +150,6 @@
       </div>
     </section>
 
-  </div>
-
-  <!-- Dica "Adicionar à tela inicial" (só no primeiro acesso mobile) -->
-  <div id="dica-instalar" class="dica-instalar" hidden>
-    <span>📲 Dica: adicione o jogo à tela inicial para jogar como um app.</span>
-    <button id="btn-fechar-dica" class="btn-icone" type="button" aria-label="Fechar dica">✕</button>
   </div>
 
   <script type="module" src="/app.js"></script>

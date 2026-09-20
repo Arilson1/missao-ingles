@@ -102,8 +102,16 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ erro: "Método não permitido." });
   }
 
-  // Corpo (a Vercel já entrega req.body parseado para JSON).
+  // Corpo: a Vercel normalmente entrega req.body parseado, mas nem sempre.
+  // Se vier vazio, lê o stream manualmente.
   let corpo = req.body;
+  if (corpo === undefined || corpo === null || corpo === "") {
+    try {
+      corpo = await lerCorpoBruto(req);
+    } catch {
+      return res.status(400).json({ erro: "JSON inválido." });
+    }
+  }
   if (typeof corpo === "string") {
     if (corpo.length > MAX_BODY) return res.status(413).json({ erro: "Requisição muito grande." });
     try {
@@ -154,6 +162,19 @@ module.exports = async function handler(req, res) {
     return res.status(502).json({ erro: "Não conseguimos preparar a missão. Tente de novo." });
   }
 };
+
+// Lê o corpo cru do request quando req.body não vem preenchido.
+function lerCorpoBruto(req) {
+  return new Promise((resolve, reject) => {
+    let dados = "";
+    req.on("data", (chunk) => {
+      dados += chunk;
+      if (dados.length > MAX_BODY * 2) reject(new Error("corpo grande"));
+    });
+    req.on("end", () => resolve(dados));
+    req.on("error", reject);
+  });
+}
 
 /**
  * Chama o Gemini e valida a resposta.

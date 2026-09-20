@@ -297,15 +297,21 @@ html, body {
 .detalhe-fases div { margin: 2px 0; }
 .dica-pequena { color: var(--texto-suave); font-size: 0.85rem; margin: -6px 0 14px; }
 
-/* ---------- Dica instalar ---------- */
+/* ---------- Dica instalar (card no fluxo) ---------- */
 .dica-instalar {
-  position: fixed;
-  left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
-  max-width: var(--largura-max); margin: 0 auto;
   background: var(--roxo); color: #fff;
   border-radius: var(--raio); padding: 12px 14px;
   display: flex; align-items: center; gap: 10px;
   box-shadow: var(--sombra); font-size: 0.9rem;
+  margin-bottom: 18px;
   animation: entra 0.3s ease;
 }
+.dica-instalar #dica-instalar-texto { flex: 1; }
 .dica-instalar .btn-icone { color: #fff; flex-shrink: 0; width: 36px; height: 36px; }
+.btn-instalar {
+  flex-shrink: 0;
+  background: #fff; color: var(--roxo);
+  border: none; border-radius: 12px;
+  font-weight: 700; padding: 8px 14px; min-height: 40px; cursor: pointer;
+}
+.btn-instalar:active { transform: scale(0.96); }

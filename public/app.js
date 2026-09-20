@@ -216,12 +216,25 @@ function mostrarErroCarregando(e) {
   let msg = "Algo deu errado ao preparar a missão. Tente de novo.";
   if (e && e.tipo === "limite") {
     msg = "Muita gente jogando agora, tente em 1 minuto. ⏳";
-  } else if (e && e.tipo === "servidor") {
-    msg = "A missão não pôde ser gerada agora. Tente de novo em instantes.";
   } else if (e && e.tipo === "rede") {
     msg = "Sem conexão. Verifique a internet e tente de novo.";
+  } else if (e && e.tipo === "servidor") {
+    // Usa a mensagem amigável do servidor quando houver (ex.: chave não configurada).
+    msg = e.mensagem || "A missão não pôde ser gerada agora. Tente de novo em instantes.";
   }
-  $("carregando-erro-msg").textContent = msg;
+  $("carregando-erro-msg").textContent = msg + " Enquanto isso, jogue a missão de exemplo abaixo. 👇";
+}
+
+// Joga uma missão de exemplo (mock) — garante que o jogo nunca fica sem funcionar.
+async function jogarExemplo() {
+  try {
+    const req = estado.ultimoPedido || { tema: "missão de exemplo", cenario: "casa", nivel: "basico" };
+    const missao = await carregarMock(req);
+    game.iniciarJogo(missao, ctx);
+  } catch {
+    mostrarAvisoInicio("Não foi possível carregar o exemplo.");
+    go("inicio");
+  }
 }
 
 /**
@@ -242,9 +255,16 @@ async function pedirMissao(req) {
 
   if (res.status === 429) throw { tipo: "limite" };
   if (res.status === 404 || res.status === 405) {
-    return await carregarMock(req); // sem Worker: modo mock/dev
+    return await carregarMock(req); // sem função de servidor: modo mock/dev
   }
-  if (!res.ok) throw { tipo: "servidor" };
+  if (!res.ok) {
+    let mensagem = null;
+    try {
+      const j = await res.json();
+      mensagem = j && j.erro;
+    } catch {}
+    throw { tipo: "servidor", status: res.status, mensagem };
+  }
 
   let dados;
   try {
@@ -285,22 +305,68 @@ function validarMissao(m) {
 }
 
 /* ============================================================
-   Dica "Adicionar à tela inicial" (só no 1º acesso mobile)
+   Instalação (PWA) — card que aparece só quando é possível instalar
+   e some ao instalar ou fechar.
    ============================================================ */
-function talvezMostrarDicaInstalar() {
-  try {
-    const jaViu = localStorage.getItem("missao-ingles:dica-instalar");
-    const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
-    const mobile = window.matchMedia("(max-width: 700px)").matches;
-    if (jaViu || standalone || !mobile) return;
-    const dica = $("dica-instalar");
+let promptInstalar = null;
+
+function jaFechouDica() {
+  try { return localStorage.getItem("missao-ingles:dica-instalar") === "1"; }
+  catch { return false; }
+}
+function marcarDicaFechada() {
+  try { localStorage.setItem("missao-ingles:dica-instalar", "1"); } catch {}
+}
+
+function estaInstalado() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function configurarInstalacao() {
+  const dica = $("dica-instalar");
+  const btnInstalar = $("btn-instalar");
+  const texto = $("dica-instalar-texto");
+
+  // Já instalado (aberto como app): nunca mostra e marca como resolvido.
+  if (estaInstalado()) {
+    marcarDicaFechada();
+    return;
+  }
+
+  $("btn-fechar-dica").addEventListener("click", () => {
+    dica.hidden = true;
+    marcarDicaFechada();
+  });
+
+  // Chromium/Android: o navegador avisa quando dá para instalar.
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    promptInstalar = e;
+    if (jaFechouDica()) return;
+    btnInstalar.hidden = false;
     dica.hidden = false;
-    $("btn-fechar-dica").addEventListener("click", () => {
-      dica.hidden = true;
-      try { localStorage.setItem("missao-ingles:dica-instalar", "1"); } catch {}
-    });
-  } catch {
-    /* silencioso */
+  });
+
+  btnInstalar.addEventListener("click", async () => {
+    if (!promptInstalar) return;
+    promptInstalar.prompt();
+    try { await promptInstalar.userChoice; } catch {}
+    promptInstalar = null;
+    dica.hidden = true;
+  });
+
+  // Ao concluir a instalação, esconde de vez.
+  window.addEventListener("appinstalled", () => {
+    dica.hidden = true;
+    marcarDicaFechada();
+  });
+
+  // iOS/Safari: não existe beforeinstallprompt — mostra o passo manual.
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (ios && !jaFechouDica()) {
+    texto.textContent = '📲 Para instalar: toque em Compartilhar e depois em "Adicionar à Tela de Início".';
+    btnInstalar.hidden = true;
+    dica.hidden = false;
   }
 }
 
@@ -312,6 +378,7 @@ function ligarEventos() {
   $("btn-praticar").addEventListener("click", () => game.irParaPraticar());
   $("btn-praticar-proximo").addEventListener("click", () => game.proximoPraticar());
   $("btn-tentar-novo").addEventListener("click", () => jogar(estado.ultimoPedido));
+  $("btn-exemplo").addEventListener("click", () => jogarExemplo());
   $("btn-refazer-missao").addEventListener("click", () => game.jogarDeNovo());
   $("btn-revisao").addEventListener("click", () => game.iniciarRevisao());
   $("btn-jogar-de-novo").addEventListener("click", () => game.jogarDeNovo());
@@ -331,7 +398,7 @@ function init() {
   montarContador();
   ligarEventos();
   renderSalvas();
-  talvezMostrarDicaInstalar();
+  configurarInstalacao();
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
