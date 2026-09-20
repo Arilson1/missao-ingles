@@ -143,13 +143,18 @@ module.exports = async function handler(req, res) {
   }
 
   const pedido = { tema, cenario, nivel };
+  const debug = /[?&]debug=1\b/.test(req.url || "");
 
   // Gera com até 1 retry. O 429 é repassado imediatamente.
+  const diag = [];
   try {
-    let missao = await gerarMissao(pedido);
-    if (!missao) missao = await gerarMissao(pedido); // 2ª tentativa
+    let missao = await gerarMissao(pedido, diag);
+    if (!missao) missao = await gerarMissao(pedido, diag); // 2ª tentativa
     if (!missao) {
-      return res.status(502).json({ erro: "Não conseguimos preparar a missão. Tente de novo." });
+      console.error("[missao] falha ao gerar:", JSON.stringify(diag));
+      const corpo = { erro: "Não conseguimos preparar a missão. Tente de novo." };
+      if (debug) corpo.detalhe = diag;
+      return res.status(502).json(corpo);
     }
     missao.tema = tema;
     missao.cenario = cenario;
@@ -159,7 +164,10 @@ module.exports = async function handler(req, res) {
     if (e && e.status === 429) {
       return res.status(429).json({ erro: "Muita gente jogando agora, tente em 1 minuto." });
     }
-    return res.status(502).json({ erro: "Não conseguimos preparar a missão. Tente de novo." });
+    console.error("[missao] erro inesperado:", e && (e.stack || e.message || e));
+    const corpo = { erro: "Não conseguimos preparar a missão. Tente de novo." };
+    if (debug) corpo.detalhe = String(e && (e.message || e));
+    return res.status(502).json(corpo);
   }
 };
 
@@ -181,7 +189,7 @@ function lerCorpoBruto(req) {
  * Retorna a missão válida, ou null se a resposta for inválida.
  * Lança { status: 429 } se o Gemini estiver com limite estourado.
  */
-async function gerarMissao(pedido) {
+async function gerarMissao(pedido, diag = []) {
   const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
@@ -212,31 +220,48 @@ async function gerarMissao(pedido) {
       },
       body: JSON.stringify(body),
     });
-  } catch {
+  } catch (e) {
+    diag.push(`rede: ${String(e && (e.message || e))} (modelo=${model})`);
     return null; // erro de rede → deixa o retry tentar
   }
 
   if (resp.status === 429) throw { status: 429 };
-  if (!resp.ok) return null;
+  if (!resp.ok) {
+    let texto = "";
+    try { texto = await resp.text(); } catch {}
+    diag.push(`gemini HTTP ${resp.status} (modelo=${model}): ${texto.slice(0, 300)}`);
+    return null;
+  }
 
   let dados;
   try {
     dados = await resp.json();
-  } catch {
+  } catch (e) {
+    diag.push(`resposta não-JSON: ${String(e && (e.message || e))}`);
     return null;
   }
 
+  // Bloqueio de segurança do Gemini, resposta cortada, etc.
+  const finish = dados?.candidates?.[0]?.finishReason;
   const texto = dados?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!texto) return null;
+  if (!texto) {
+    diag.push(`sem texto na resposta (finishReason=${finish || "?"})`);
+    return null;
+  }
 
   let missao;
   try {
     missao = JSON.parse(texto);
   } catch {
+    diag.push("texto retornado não é JSON válido");
     return null;
   }
 
-  return validarMissao(missao) ? missao : null;
+  if (!validarMissao(missao)) {
+    diag.push("JSON gerado não passou na validação (quantidades/formato)");
+    return null;
+  }
+  return missao;
 }
 
 /* Validação da resposta da IA (quantidades e formato). */
