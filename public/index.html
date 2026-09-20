@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#6c5ce7" />
+  <meta name="description" content="Jogo de reforço de inglês com missões geradas por IA." />
+  <title>Missão Inglês</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- 1. INÍCIO -->
+    <section id="screen-inicio" class="screen is-active">
+      <header class="topo">
+        <h1 class="logo">🎯 Missão <span>Inglês</span></h1>
+        <p class="subtitulo">Aprenda inglês jogando missões do seu jeito.</p>
+      </header>
+
+      <label class="campo">
+        <span class="campo-label">O que você estudou na última aula?</span>
+        <input
+          id="input-tema"
+          type="text"
+          maxlength="80"
+          autocomplete="off"
+          placeholder="Ex.: verb to be, parts of the house…"
+          aria-describedby="tema-contador"
+        />
+        <span id="tema-contador" class="contador">0/80</span>
+      </label>
+
+      <fieldset class="bloco">
+        <legend>Escolha um cenário</legend>
+        <div id="grade-cenarios" class="grade-cenarios" role="radiogroup" aria-label="Cenário"></div>
+      </fieldset>
+
+      <fieldset class="bloco">
+        <legend>Nível</legend>
+        <div class="niveis" role="radiogroup" aria-label="Nível">
+          <button type="button" class="nivel is-selected" data-nivel="basico" role="radio" aria-checked="true">Básico</button>
+          <button type="button" class="nivel" data-nivel="intermediario" role="radio" aria-checked="false">Intermediário</button>
+        </div>
+      </fieldset>
+
+      <button id="btn-jogar" class="btn btn-primario btn-grande" type="button">▶️ Jogar</button>
+      <p id="aviso-inicio" class="aviso" role="alert" aria-live="polite" hidden></p>
+
+      <section class="bloco" id="bloco-salvas" hidden>
+        <h2 class="secao-titulo">💾 Missões salvas</h2>
+        <ul id="lista-salvas" class="lista-salvas"></ul>
+      </section>
+
+      <p class="rodape">Jogue offline as missões salvas. Feito para estudar com a turma. 💚</p>
+    </section>
+
+    <!-- 2. CARREGANDO -->
+    <section id="screen-carregando" class="screen">
+      <div class="carregando">
+        <div class="spinner" aria-hidden="true">🎯</div>
+        <p id="carregando-msg" aria-live="polite">Preparando sua missão…</p>
+        <div id="carregando-erro" hidden>
+          <p id="carregando-erro-msg" class="aviso" role="alert"></p>
+          <button id="btn-tentar-novo" class="btn btn-primario" type="button">🔄 Tentar de novo</button>
+          <button id="btn-voltar-erro" class="btn btn-secundario" type="button">← Início</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. FASE 1 — APRENDER -->
+    <section id="screen-aprender" class="screen">
+      <div class="barra-topo">
+        <button class="btn-icone" data-voltar-inicio type="button" aria-label="Voltar ao início">←</button>
+        <span class="fase-tag">Fase 1 · Aprender</span>
+      </div>
+      <h2 id="aprender-titulo" class="secao-titulo"></h2>
+      <p id="aprender-intro" class="intro"></p>
+      <div id="aprender-cards" class="cards"></div>
+      <button id="btn-praticar" class="btn btn-primario btn-grande" type="button">Praticar ➡️</button>
+    </section>
+
+    <!-- 4. FASE 2 — PRATICAR -->
+    <section id="screen-praticar" class="screen">
+      <div class="barra-topo">
+        <button class="btn-icone" data-voltar-inicio type="button" aria-label="Voltar ao início">←</button>
+        <span class="fase-tag">Fase 2 · Praticar</span>
+      </div>
+      <div class="progresso" aria-hidden="true"><div id="praticar-progresso" class="progresso-preenchida"></div></div>
+      <p id="praticar-contador" class="passo-contador"></p>
+      <p id="praticar-frase" class="frase-lacuna"></p>
+      <div id="praticar-opcoes" class="opcoes"></div>
+      <div id="praticar-feedback" class="feedback" aria-live="polite"></div>
+      <button id="btn-praticar-proximo" class="btn btn-primario btn-grande" type="button" hidden>Continuar ➡️</button>
+    </section>
+
+    <!-- 5. FASE 3 — DESAFIO -->
+    <section id="screen-missao" class="screen">
+      <div class="barra-topo">
+        <button class="btn-icone" data-voltar-inicio type="button" aria-label="Voltar ao início">←</button>
+        <span class="fase-tag">Fase 3 · Desafio</span>
+        <span id="missao-vidas" class="vidas" aria-label="Vidas restantes"></span>
+      </div>
+      <div class="progresso" aria-hidden="true"><div id="missao-progresso" class="progresso-preenchida"></div></div>
+      <p id="missao-narracao" class="narracao"></p>
+      <p id="missao-pergunta" class="pergunta"></p>
+      <div id="missao-opcoes" class="opcoes"></div>
+      <div id="missao-feedback" class="feedback" aria-live="polite"></div>
+      <button id="btn-missao-proximo" class="btn btn-primario btn-grande" type="button" hidden>Continuar ➡️</button>
+    </section>
+
+    <!-- 5b. FIM (perdeu todas as vidas) -->
+    <section id="screen-fim" class="screen">
+      <div class="final-caixa">
+        <div class="final-emoji" aria-hidden="true">💔</div>
+        <h2>Missão falhou</h2>
+        <p>Você perdeu todas as vidas. Sem problema — tente de novo!</p>
+        <button id="btn-refazer-missao" class="btn btn-primario btn-grande" type="button">🔄 Tentar a missão de novo</button>
+        <button class="btn btn-secundario" data-voltar-inicio type="button">← Início</button>
+      </div>
+    </section>
+
+    <!-- 6. RESULTADO E REVISÃO -->
+    <section id="screen-resultado" class="screen">
+      <div class="final-caixa">
+        <div id="resultado-estrelas" class="estrelas" aria-label="Estrelas"></div>
+        <div id="resultado-narrativa-final" class="narrativa-final"></div>
+        <p id="resultado-pontos" class="pontos-final"></p>
+        <div id="resultado-detalhe" class="detalhe-fases"></div>
+
+        <div id="bloco-revisao" hidden>
+          <button id="btn-revisao" class="btn btn-destaque btn-grande" type="button">🔁 Rodada de revisão</button>
+          <p class="dica-pequena">Repete só as perguntas que você errou.</p>
+        </div>
+
+        <button id="btn-jogar-de-novo" class="btn btn-primario btn-grande" type="button">🔄 Jogar de novo</button>
+        <button id="btn-nova-missao" class="btn btn-secundario" type="button">✨ Nova missão (mesmo tema)</button>
+        <button class="btn btn-secundario" data-voltar-inicio type="button">🏠 Início</button>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Dica "Adicionar à tela inicial" (só no primeiro acesso mobile) -->
+  <div id="dica-instalar" class="dica-instalar" hidden>
+    <span>📲 Dica: adicione o jogo à tela inicial para jogar como um app.</span>
+    <button id="btn-fechar-dica" class="btn-icone" type="button" aria-label="Fechar dica">✕</button>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

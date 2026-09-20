@@ -1,0 +1,19 @@
+# Dependências
+node_modules/
+
+# Vercel
+.vercel/
+
+# Variáveis de ambiente / segredos (a chave do Gemini NUNCA vai pro Git)
+.env
+.env.*
+.dev.vars
+
+# Cloudflare (alternativa)
+.wrangler/
+
+# Logs e sistema
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db

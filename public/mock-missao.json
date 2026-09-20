@@ -1,0 +1,96 @@
+{
+  "tema": "parts of the house",
+  "cenario": "casa",
+  "nivel": "basico",
+  "titulo": "Um dia em casa",
+  "introducao": "Vamos aprender os cômodos e objetos da casa em inglês. Preste atenção nas palavras e nas frases de exemplo.",
+  "aprender": [
+    { "emoji": "🛏️", "en": "bedroom", "pt": "quarto", "exemplo": "I sleep in the bedroom." },
+    { "emoji": "🍳", "en": "kitchen", "pt": "cozinha", "exemplo": "We cook in the kitchen." },
+    { "emoji": "🛋️", "en": "living room", "pt": "sala de estar", "exemplo": "We watch TV in the living room." },
+    { "emoji": "🚿", "en": "bathroom", "pt": "banheiro", "exemplo": "I take a shower in the bathroom." },
+    { "emoji": "🚪", "en": "door", "pt": "porta", "exemplo": "Please close the door." },
+    { "emoji": "🪟", "en": "window", "pt": "janela", "exemplo": "Open the window, please." },
+    { "emoji": "🪑", "en": "chair", "pt": "cadeira", "exemplo": "Sit on the chair." },
+    { "emoji": "🛏️", "en": "bed", "pt": "cama", "exemplo": "The bed is very comfortable." }
+  ],
+  "praticar": [
+    {
+      "frase": "I cook dinner in the ___.",
+      "opcoes": ["bedroom", "kitchen", "garden", "garage"],
+      "correta": 1,
+      "dica": "Cozinhar acontece na cozinha (kitchen)."
+    },
+    {
+      "frase": "I sleep in the ___.",
+      "opcoes": ["kitchen", "bathroom", "bedroom", "living room"],
+      "correta": 2,
+      "dica": "Dormimos no quarto (bedroom)."
+    },
+    {
+      "frase": "Please close the ___.",
+      "opcoes": ["window", "door", "chair", "bed"],
+      "correta": 1,
+      "dica": "\"Close the door\" = feche a porta."
+    },
+    {
+      "frase": "We watch TV in the ___.",
+      "opcoes": ["living room", "bathroom", "kitchen", "garage"],
+      "correta": 0,
+      "dica": "Assistimos TV na sala (living room)."
+    },
+    {
+      "frase": "I take a shower in the ___.",
+      "opcoes": ["kitchen", "bedroom", "bathroom", "hall"],
+      "correta": 2,
+      "dica": "O banho é no banheiro (bathroom)."
+    },
+    {
+      "frase": "Open the ___ to get some air.",
+      "opcoes": ["door", "bed", "window", "chair"],
+      "correta": 2,
+      "dica": "Abrimos a janela (window) para arejar."
+    }
+  ],
+  "missao": {
+    "abertura": "You arrive home after school. Your mom asks you to help around the house.",
+    "etapas": [
+      {
+        "narracao": "Your mom is holding the groceries and says:",
+        "pergunta": "\"Can you put this food in the...?\"",
+        "opcoes": ["bedroom", "bathroom", "kitchen", "garden"],
+        "correta": 2,
+        "feedback_erro": "Comida vai para a cozinha (kitchen)."
+      },
+      {
+        "narracao": "It is getting cold inside. Your mom says:",
+        "pergunta": "\"Please close the...\"",
+        "opcoes": ["window", "chair", "table", "bed"],
+        "correta": 0,
+        "feedback_erro": "Para bloquear o frio, fechamos a janela (window)."
+      },
+      {
+        "narracao": "You are tired and want to rest. You go to your room and lie on the:",
+        "pergunta": "\"I want to rest on my...\"",
+        "opcoes": ["door", "bed", "sink", "stove"],
+        "correta": 1,
+        "feedback_erro": "Descansamos na cama (bed)."
+      },
+      {
+        "narracao": "Your little brother wants to watch cartoons. He asks:",
+        "pergunta": "\"Where is the TV?\"",
+        "opcoes": ["In the bathroom.", "In the living room.", "In the kitchen.", "In the bed."],
+        "correta": 1,
+        "feedback_erro": "A TV normalmente fica na sala (living room)."
+      },
+      {
+        "narracao": "Before dinner, your mom says you are dirty and need to:",
+        "pergunta": "\"Go take a shower in the...\"",
+        "opcoes": ["kitchen", "garage", "bathroom", "bedroom"],
+        "correta": 2,
+        "feedback_erro": "O banho é no banheiro (bathroom)."
+      }
+    ],
+    "final": "Great job! The house is tidy and dinner is ready. Mission complete! 🎉"
+  }
+}

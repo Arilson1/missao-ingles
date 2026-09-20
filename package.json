@@ -1,0 +1,9 @@
+{
+  "name": "missao-ingles",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Jogo de reforço de inglês com missões geradas por IA (front + função serverless).",
+  "engines": {
+    "node": ">=18"
+  }
+}

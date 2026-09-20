@@ -1,0 +1,17 @@
+name = "missao-ingles"
+main = "src/worker.js"
+compatibility_date = "2025-01-15"
+
+# Serve a pasta ./public como assets estáticos.
+# Assets têm prioridade; requisições que não batem com um arquivo
+# (ex.: /api/missao) caem no fetch handler do Worker.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[vars]
+# Modelo Flash do plano gratuito. Confira o nome atual no Google AI Studio.
+GEMINI_MODEL = "gemini-2.0-flash"
+
+# A chave fica em secret, nunca aqui:
+#   npx wrangler secret put GEMINI_API_KEY
