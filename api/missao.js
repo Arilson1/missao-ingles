@@ -11,6 +11,11 @@ const CENARIOS_PERMITIDOS = [
   "hotel",
   "mercado",
   "medico",
+  "praia",
+  "escola",
+  "festa",
+  "viagem",
+  "entrevista",
 ];
 
 const NIVEIS = ["basico", "intermediario"];

@@ -2,8 +2,16 @@
 
 Jogo web (PWA) de reforço de inglês para alunos brasileiros. O aluno digita o
 **tema da última aula** (ex.: "verb to be", "parts of the house"), escolhe um
-**cenário** (casa, restaurante, aeroporto…) e joga uma **missão** em 3 fases
-gerada por IA — tudo pensado para celular.
+**cenário** (casa, restaurante, aeroporto, praia, escola, festa, viagem,
+entrevista…) e joga uma **missão** gerada por IA — tudo pensado para celular.
+
+### Recursos
+- **Aprender** → **Escutar** (ouça e escolha o significado) → **Praticar**
+  (completar lacunas + **ordenar palavras**) → **Desafio** (a missão, com 3 vidas).
+- **🎤 Treinar a fala**: leia em voz alta e o reconhecimento de voz confere a pronúncia.
+- **🧠 Revisar meus erros**: repetição espaçada com os erros de todas as partidas.
+- **📤 Compartilhar**: manda um link que já abre o app com o tema preenchido.
+- **Missões salvas** jogáveis offline (PWA instalável).
 
 - **Sem framework e sem build**: HTML, CSS e JavaScript puros (ES modules).
 - **Sem banco de dados e sem login.**

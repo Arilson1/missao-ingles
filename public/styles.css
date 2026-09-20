@@ -297,6 +297,50 @@ html, body {
 .detalhe-fases div { margin: 2px 0; }
 .dica-pequena { color: var(--texto-suave); font-size: 0.85rem; margin: -6px 0 14px; }
 
+/* ---------- Ações do início ---------- */
+.acoes-inicio { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.acoes-inicio .btn { margin-bottom: 0; }
+
+/* ---------- Botão de áudio grande (Escutar) ---------- */
+.btn-audio-grande {
+  background: var(--azul);
+  margin-bottom: 14px;
+}
+
+/* ---------- Ordenar palavras (chips) ---------- */
+#quiz-ordenar { margin-bottom: 12px; }
+.ordenar-resposta {
+  min-height: 56px;
+  border: 2px dashed var(--borda);
+  border-radius: var(--raio);
+  padding: 10px;
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 12px;
+  background: color-mix(in srgb, var(--verde) 8%, var(--card));
+}
+.ordenar-banco { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  background: var(--card);
+  border: 2px solid var(--roxo);
+  color: var(--texto);
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 44px;
+}
+.chip:active { transform: scale(0.95); }
+.ordenar-resposta .chip { border-color: var(--verde); background: color-mix(in srgb, var(--verde) 15%, var(--card)); }
+.ordenar-resposta:empty::before { content: "Toque nas palavras abaixo…"; color: var(--texto-suave); align-self: center; }
+
+/* ---------- Falar ---------- */
+#falar-alvo { text-align: center; color: var(--roxo); }
+@media (prefers-color-scheme: dark) { #falar-alvo { color: var(--verde-claro); } }
+#falar-traducao { text-align: center; }
+.linha-botoes { display: flex; gap: 10px; }
+.linha-botoes .btn { flex: 1; }
+
 /* ---------- Dica instalar (card no fluxo) ---------- */
 .dica-instalar {
   background: var(--roxo); color: #fff;

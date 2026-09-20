@@ -1,6 +1,6 @@
 // app.js — navegação entre telas, estado do jogo e ponte com a API.
 import * as game from "./game.js";
-import { salvarMissao, listarMissoes, buscarMissao } from "./storage.js";
+import { salvarMissao, listarMissoes, buscarMissao, contarErrosGlobais } from "./storage.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -13,6 +13,11 @@ const CENARIOS = [
   { id: "hotel", emoji: "🏨", nome: "Hotel" },
   { id: "mercado", emoji: "🛒", nome: "Mercado" },
   { id: "medico", emoji: "🏥", nome: "Médico" },
+  { id: "praia", emoji: "🏖️", nome: "Praia" },
+  { id: "escola", emoji: "🏫", nome: "Escola" },
+  { id: "festa", emoji: "🎉", nome: "Festa" },
+  { id: "viagem", emoji: "🧳", nome: "Viagem" },
+  { id: "entrevista", emoji: "🤝", nome: "Entrevista" },
   { id: "surpresa", emoji: "🎲", nome: "Surpresa" },
 ];
 const emojiCenario = (id) => (CENARIOS.find((c) => c.id === id) || {}).emoji || "🎯";
@@ -32,7 +37,30 @@ function go(tela) {
   const el = $(`screen-${tela}`);
   if (el) el.classList.add("is-active");
   window.scrollTo(0, 0);
-  if (tela === "inicio") renderSalvas();
+  if (tela === "inicio") {
+    renderSalvas();
+    atualizarBotaoRevisao();
+  }
+}
+
+// Mostra/atualiza o botão "Revisar meus erros" conforme o banco de erros.
+function atualizarBotaoRevisao() {
+  const btn = $("btn-revisar-erros");
+  const n = contarErrosGlobais();
+  if (n > 0) {
+    btn.hidden = false;
+    btn.textContent = `🧠 Revisar meus erros (${n})`;
+  } else {
+    btn.hidden = true;
+  }
+}
+
+// Mostra um aviso no início (erro por padrão; sucesso = verde).
+function avisoInicio(texto, sucesso = false) {
+  const a = $("aviso-inicio");
+  a.textContent = texto;
+  a.style.color = sucesso ? "var(--verde)" : "";
+  a.hidden = false;
 }
 
 /* ============================================================
@@ -51,7 +79,7 @@ function speak(texto) {
   }
 }
 
-const ctx = { go, speak };
+const ctx = { go, speak, avisoInicio };
 
 /* ============================================================
    Tela inicial
@@ -146,7 +174,7 @@ function renderSalvas() {
     btn.textContent = "Jogar";
     btn.addEventListener("click", () => {
       const item = buscarMissao(s.chave);
-      if (item && item.missao) game.iniciarJogo(item.missao, ctx);
+      if (item && item.missao) game.iniciarJogo(item.missao);
     });
 
     li.append(emoji, info, btn);
@@ -158,9 +186,7 @@ function renderSalvas() {
    Iniciar uma missão nova (API + fallback ao mock)
    ============================================================ */
 function mostrarAvisoInicio(texto) {
-  const a = $("aviso-inicio");
-  a.textContent = texto;
-  a.hidden = false;
+  avisoInicio(texto, false);
 }
 
 async function jogar(pedido) {
@@ -197,7 +223,7 @@ async function jogar(pedido) {
   try {
     const missao = await pedirMissao(req);
     salvarMissao(missao);
-    game.iniciarJogo(missao, ctx);
+    game.iniciarJogo(missao);
   } catch (e) {
     mostrarErroCarregando(e);
   }
@@ -230,7 +256,7 @@ async function jogarExemplo() {
   try {
     const req = estado.ultimoPedido || { tema: "missão de exemplo", cenario: "casa", nivel: "basico" };
     const missao = await carregarMock(req);
-    game.iniciarJogo(missao, ctx);
+    game.iniciarJogo(missao);
   } catch {
     mostrarAvisoInicio("Não foi possível carregar o exemplo.");
     go("inicio");
@@ -375,14 +401,15 @@ function configurarInstalacao() {
    ============================================================ */
 function ligarEventos() {
   $("btn-jogar").addEventListener("click", () => jogar());
-  $("btn-praticar").addEventListener("click", () => game.irParaPraticar());
-  $("btn-praticar-proximo").addEventListener("click", () => game.proximoPraticar());
   $("btn-tentar-novo").addEventListener("click", () => jogar(estado.ultimoPedido));
   $("btn-exemplo").addEventListener("click", () => jogarExemplo());
   $("btn-refazer-missao").addEventListener("click", () => game.jogarDeNovo());
   $("btn-revisao").addEventListener("click", () => game.iniciarRevisao());
   $("btn-jogar-de-novo").addEventListener("click", () => game.jogarDeNovo());
   $("btn-nova-missao").addEventListener("click", () => jogar(estado.ultimoPedido));
+  $("btn-revisar-erros").addEventListener("click", () => game.iniciarRevisaoGlobal());
+  $("btn-compartilhar").addEventListener("click", () => compartilhar(pedidoAtual()));
+  $("btn-compartilhar-res").addEventListener("click", () => compartilhar(estado.ultimoPedido));
 
   document.querySelectorAll("[data-voltar-inicio]").forEach((b) =>
     b.addEventListener("click", () => go("inicio"))
@@ -390,15 +417,84 @@ function ligarEventos() {
 }
 
 /* ============================================================
+   Compartilhar missão (Web Share API + link que preenche o tema)
+   ============================================================ */
+function pedidoAtual() {
+  const tema = $("input-tema").value.trim();
+  if (!tema || !estado.cenario || estado.cenario === "surpresa") return null;
+  return { tema, cenario: estado.cenario, nivel: estado.nivel };
+}
+
+function linkDaMissao(req) {
+  const url = new URL(location.origin + "/");
+  url.searchParams.set("tema", req.tema);
+  url.searchParams.set("cenario", req.cenario);
+  url.searchParams.set("nivel", req.nivel);
+  return url.toString();
+}
+
+async function compartilhar(req) {
+  if (!req) {
+    avisoInicio("Escreva um tema e escolha um cenário para compartilhar.");
+    return;
+  }
+  const url = linkDaMissao(req);
+  const texto = `Vamos treinar inglês? Missão: "${req.tema}" (${nomeCenario(req.cenario)}).`;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: "Missão Inglês", text: texto, url });
+      return;
+    }
+  } catch {
+    return; // usuário cancelou o compartilhamento
+  }
+  // Sem Web Share: copia o link.
+  try {
+    await navigator.clipboard.writeText(url);
+    avisoInicio("Link copiado! Cole no grupo da turma. 🔗", true);
+  } catch {
+    avisoInicio(`Link da missão: ${url}`);
+  }
+}
+
+// Lê ?tema=&cenario=&nivel= do link e pré-preenche o início.
+function aplicarParametrosURL() {
+  try {
+    const p = new URLSearchParams(location.search);
+    const tema = (p.get("tema") || "").slice(0, 80);
+    if (!tema) return;
+    $("input-tema").value = tema;
+    $("tema-contador").textContent = `${tema.length}/80`;
+    const cenario = p.get("cenario");
+    if (cenario && CENARIOS.some((c) => c.id === cenario)) selecionarCenario(cenario);
+    const nivel = p.get("nivel");
+    if (nivel === "basico" || nivel === "intermediario") {
+      estado.nivel = nivel;
+      document.querySelectorAll(".nivel").forEach((x) => {
+        const sel = x.dataset.nivel === nivel;
+        x.classList.toggle("is-selected", sel);
+        x.setAttribute("aria-checked", sel ? "true" : "false");
+      });
+    }
+    avisoInicio("Missão sugerida por um colega — toque em Jogar! 🎯", true);
+  } catch {
+    /* silencioso */
+  }
+}
+
+/* ============================================================
    Boot
    ============================================================ */
 function init() {
+  game.definirContexto(ctx);
   montarCenarios();
   montarNiveis();
   montarContador();
   ligarEventos();
   renderSalvas();
+  atualizarBotaoRevisao();
   configurarInstalacao();
+  aplicarParametrosURL();
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {

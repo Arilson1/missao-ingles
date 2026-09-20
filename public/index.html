@@ -57,6 +57,11 @@
       <button id="btn-jogar" class="btn btn-primario btn-grande" type="button">▶️ Jogar</button>
       <p id="aviso-inicio" class="aviso" role="alert" aria-live="polite" hidden></p>
 
+      <div class="acoes-inicio">
+        <button id="btn-revisar-erros" class="btn btn-destaque" type="button" hidden>🧠 Revisar meus erros</button>
+        <button id="btn-compartilhar" class="btn btn-secundario" type="button">📤 Compartilhar missão</button>
+      </div>
+
       <section class="bloco" id="bloco-salvas" hidden>
         <h2 class="secao-titulo">💾 Missões salvas</h2>
         <ul id="lista-salvas" class="lista-salvas"></ul>
@@ -88,28 +93,54 @@
       <h2 id="aprender-titulo" class="secao-titulo"></h2>
       <p id="aprender-intro" class="intro"></p>
       <div id="aprender-cards" class="cards"></div>
-      <button id="btn-praticar" class="btn btn-primario btn-grande" type="button">Praticar ➡️</button>
+      <button id="btn-treinar-fala" class="btn btn-secundario" type="button">🎤 Treinar a fala</button>
+      <button id="btn-aprender-continuar" class="btn btn-primario btn-grande" type="button">Continuar ➡️</button>
     </section>
 
-    <!-- 4. FASE 2 — PRATICAR -->
+    <!-- 4. QUIZ — Escutar / Praticar / Revisão (tela compartilhada) -->
     <section id="screen-praticar" class="screen">
       <div class="barra-topo">
         <button class="btn-icone" data-voltar-inicio type="button" aria-label="Voltar ao início">←</button>
-        <span class="fase-tag">Fase 2 · Praticar</span>
+        <span id="quiz-tag" class="fase-tag">Praticar</span>
       </div>
-      <div class="progresso" aria-hidden="true"><div id="praticar-progresso" class="progresso-preenchida"></div></div>
-      <p id="praticar-contador" class="passo-contador"></p>
-      <p id="praticar-frase" class="frase-lacuna"></p>
-      <div id="praticar-opcoes" class="opcoes"></div>
-      <div id="praticar-feedback" class="feedback" aria-live="polite"></div>
-      <button id="btn-praticar-proximo" class="btn btn-primario btn-grande" type="button" hidden>Continuar ➡️</button>
+      <div class="progresso" aria-hidden="true"><div id="quiz-progresso" class="progresso-preenchida"></div></div>
+      <p id="quiz-contador" class="passo-contador"></p>
+      <button id="quiz-audio" class="btn btn-audio-grande" type="button" hidden>🔊 Ouvir de novo</button>
+      <p id="quiz-prompt" class="frase-lacuna"></p>
+      <div id="quiz-opcoes" class="opcoes"></div>
+      <div id="quiz-ordenar" hidden>
+        <div id="ordenar-resposta" class="ordenar-resposta" aria-label="Sua frase"></div>
+        <div id="ordenar-banco" class="ordenar-banco" aria-label="Palavras disponíveis"></div>
+      </div>
+      <div id="quiz-feedback" class="feedback" aria-live="polite"></div>
+      <button id="btn-quiz-verificar" class="btn btn-primario btn-grande" type="button" hidden>Verificar</button>
+      <button id="btn-quiz-proximo" class="btn btn-primario btn-grande" type="button" hidden>Continuar ➡️</button>
     </section>
 
-    <!-- 5. FASE 3 — DESAFIO -->
+    <!-- FASE FALAR — treino de pronúncia -->
+    <section id="screen-falar" class="screen">
+      <div class="barra-topo">
+        <button id="btn-falar-voltar" class="btn-icone" type="button" aria-label="Voltar">←</button>
+        <span class="fase-tag">🎤 Falar</span>
+      </div>
+      <p id="falar-contador" class="passo-contador"></p>
+      <p id="falar-prompt" class="narracao"></p>
+      <p id="falar-alvo" class="frase-lacuna"></p>
+      <p id="falar-traducao" class="dica-pequena"></p>
+      <div id="falar-feedback" class="feedback" aria-live="polite"></div>
+      <button id="btn-falar-microfone" class="btn btn-primario btn-grande" type="button">🎤 Falar</button>
+      <button id="btn-falar-ouvir" class="btn btn-secundario" type="button">🔊 Ouvir</button>
+      <div class="linha-botoes">
+        <button id="btn-falar-pular" class="btn btn-secundario" type="button">Pular</button>
+        <button id="btn-falar-proximo" class="btn btn-primario" type="button" hidden>Próxima ➡️</button>
+      </div>
+    </section>
+
+    <!-- 5. FASE 4 — DESAFIO -->
     <section id="screen-missao" class="screen">
       <div class="barra-topo">
         <button class="btn-icone" data-voltar-inicio type="button" aria-label="Voltar ao início">←</button>
-        <span class="fase-tag">Fase 3 · Desafio</span>
+        <span class="fase-tag">Fase 4 · Desafio</span>
         <span id="missao-vidas" class="vidas" aria-label="Vidas restantes"></span>
       </div>
       <div class="progresso" aria-hidden="true"><div id="missao-progresso" class="progresso-preenchida"></div></div>
@@ -146,6 +177,7 @@
 
         <button id="btn-jogar-de-novo" class="btn btn-primario btn-grande" type="button">🔄 Jogar de novo</button>
         <button id="btn-nova-missao" class="btn btn-secundario" type="button">✨ Nova missão (mesmo tema)</button>
+        <button id="btn-compartilhar-res" class="btn btn-secundario" type="button">📤 Compartilhar esta missão</button>
         <button class="btn btn-secundario" data-voltar-inicio type="button">🏠 Início</button>
       </div>
     </section>

@@ -1,17 +1,19 @@
 // game.js — lógica das fases do jogo.
-// Recebe um "ctx" do app.js com: go(tela), speak(texto), aoResultado().
+// Fluxo: Aprender → Escutar → Praticar (completar + ordenar) → Desafio → Resultado.
+// Extras: treino de Fala (speech recognition) e revisão de erros (no jogo e global).
 // Todo conteúdo vindo da IA é inserido com textContent (nunca innerHTML).
+import { salvarErroGlobal, proximaRevisaoGlobal, registrarRevisaoGlobal } from "./storage.js";
 
 const $ = (id) => document.getElementById(id);
 
-let ctx = null; // { go, speak }
+let ctx = null; // { go, speak, avisoInicio }
 let jogo = null; // estado da partida atual
+let revState = null; // estado de uma rodada de revisão em andamento
 
-const PONTOS_PRATICAR = 10;
+const PONTOS_QUIZ = 10;
 const PONTOS_MISSAO = 20;
 
 /* ---------- utilidades ---------- */
-
 function embaralhar(arr) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -20,21 +22,14 @@ function embaralhar(arr) {
   }
   return a;
 }
-
-// Embaralha opções mantendo a referência da resposta correta.
 function embaralharOpcoes(opcoes, correta) {
   const marcadas = opcoes.map((texto, i) => ({ texto, correta: i === correta }));
   const novas = embaralhar(marcadas);
-  return {
-    opcoes: novas.map((o) => o.texto),
-    correta: novas.findIndex((o) => o.correta),
-  };
+  return { opcoes: novas.map((o) => o.texto), correta: novas.findIndex((o) => o.correta) };
 }
-
 function limpar(el) {
   while (el.firstChild) el.removeChild(el.firstChild);
 }
-
 function botaoOpcao(texto, onClick) {
   const b = document.createElement("button");
   b.type = "button";
@@ -43,32 +38,112 @@ function botaoOpcao(texto, onClick) {
   b.addEventListener("click", onClick);
   return b;
 }
+function palavrasDe(frase) {
+  return (frase || "").replace(/[.?!,;:"]/g, "").trim().split(/\s+/).filter(Boolean);
+}
+function normalizar(s) {
+  return (s || "").toLowerCase().replace(/[^a-z0-9'\s]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/* ---------- contexto ---------- */
+export function definirContexto(contexto) {
+  ctx = contexto;
+}
 
 /* ============================================================
    Início da partida
    ============================================================ */
-
-export function iniciarJogo(missao, contexto) {
-  ctx = contexto;
+export function iniciarJogo(missao) {
   jogo = {
     missao,
     pontos: 0,
     vidas: 3,
+    escutaFila: gerarEscuta(missao.aprender),
+    escutaIdx: 0,
+    escutaAcertos: 0,
+    praticarFila: montarPraticar(missao),
     praticarIdx: 0,
     praticarAcertos: 0,
     etapaIdx: 0,
     missaoAcertos: 0,
-    errosRevisao: [], // { texto, opcoes, correta, dica }
-    revisao: null, // { lista, idx, acertos } quando na rodada de revisão
+    falarFila: gerarFalar(missao.aprender),
+    falarIdx: 0,
+    falarAcertos: 0,
+    errosRevisao: [],
   };
   renderAprender();
   ctx.go("aprender");
 }
 
+export function jogarDeNovo() {
+  if (jogo) iniciarJogo(jogo.missao);
+}
+
+/* ---------- geradores de conteúdo (client-side) ---------- */
+function gerarEscuta(aprender) {
+  const itens = (aprender || []).filter((a) => a.en && a.pt);
+  if (itens.length < 4) return [];
+  const pts = itens.map((a) => a.pt);
+  return embaralhar(itens)
+    .slice(0, Math.min(4, itens.length))
+    .map((item) => {
+      const distratores = embaralhar(pts.filter((p) => p !== item.pt)).slice(0, 3);
+      const opcoes = embaralhar([item.pt, ...distratores]);
+      return {
+        en: item.en,
+        opcoes,
+        correta: opcoes.indexOf(item.pt),
+        dica: `"${item.en}" significa ${item.pt}.`,
+      };
+    });
+}
+
+function gerarOrdenar(missao) {
+  const frases = (missao.aprender || []).map((a) => a.exemplo).filter(Boolean);
+  const boas = [...new Set(frases)].filter((f) => {
+    const p = palavrasDe(f);
+    return p.length >= 3 && p.length <= 8;
+  });
+  return embaralhar(boas)
+    .slice(0, 2)
+    .map((f) => {
+      const p = palavrasDe(f);
+      let emb = embaralhar(p);
+      let t = 0;
+      while (emb.join(" ") === p.join(" ") && t++ < 6) emb = embaralhar(p);
+      return { tipo: "ordenar", palavras: emb, correta: p, fraseOriginal: f };
+    });
+}
+
+function montarPraticar(missao) {
+  const completar = (missao.praticar || []).map((p) => ({
+    tipo: "completar",
+    frase: p.frase,
+    opcoes: p.opcoes,
+    correta: p.correta,
+    dica: p.dica,
+  }));
+  const ordenar = gerarOrdenar(missao);
+  const nComp = Math.max(4, 6 - ordenar.length);
+  const fila = embaralhar([...completar.slice(0, nComp), ...ordenar]);
+  return fila.length ? fila : completar;
+}
+
+function gerarFalar(aprender) {
+  return embaralhar((aprender || []).filter((a) => a.exemplo))
+    .slice(0, 5)
+    .map((a) => ({ alvo: a.exemplo, pt: a.pt, en: a.en }));
+}
+
+/* ---------- registro de erros ---------- */
+function registrarErroMC(texto, opcoes, correta, dica) {
+  jogo.errosRevisao.push({ texto, opcoes: opcoes.slice(), correta, dica: dica || "" });
+  salvarErroGlobal({ texto, opcoes, correta, dica, tema: jogo.missao.tema, cenario: jogo.missao.cenario });
+}
+
 /* ============================================================
    Fase 1 — Aprender
    ============================================================ */
-
 function renderAprender() {
   const m = jogo.missao;
   $("aprender-titulo").textContent = m.titulo || m.tema;
@@ -76,110 +151,297 @@ function renderAprender() {
 
   const cont = $("aprender-cards");
   limpar(cont);
-
   m.aprender.forEach((item) => {
     const card = document.createElement("div");
     card.className = "card-vocab";
-
     const emoji = document.createElement("div");
     emoji.className = "c-emoji";
     emoji.textContent = item.emoji || "📘";
-
     const en = document.createElement("div");
     en.className = "c-en";
     en.textContent = item.en || "";
-
     const pt = document.createElement("div");
     pt.className = "c-pt";
     pt.textContent = item.pt || "";
-
     const ex = document.createElement("div");
     ex.className = "c-ex";
     ex.textContent = item.exemplo || "";
-
     const audio = document.createElement("button");
     audio.type = "button";
     audio.className = "c-audio";
     audio.textContent = "🔊";
     audio.setAttribute("aria-label", `Ouvir "${item.en}"`);
     audio.addEventListener("click", () => ctx.speak(item.exemplo || item.en));
-
     card.append(emoji, en, pt, ex, audio);
     cont.appendChild(card);
   });
+
+  $("btn-treinar-fala").onclick = () => treinarFala();
+  $("btn-aprender-continuar").onclick = () => continuarDeAprender();
 }
 
 /* ============================================================
-   Fase 2 — Praticar
+   Tela de quiz (compartilhada por Escutar, Praticar e Revisão)
    ============================================================ */
+function quizRenderMC(cfg) {
+  // cfg: { tag, progresso, contador, audioTexto, prompt, opcoes, correta, dica,
+  //        onResponder(acertou), aoProximo, rotuloProximo }
+  $("quiz-tag").textContent = cfg.tag;
+  $("quiz-progresso").style.width = `${cfg.progresso * 100}%`;
+  $("quiz-contador").textContent = cfg.contador;
 
-function renderPraticar() {
-  const lista = jogo.missao.praticar;
-  const total = lista.length;
-  const i = jogo.praticarIdx;
-
-  if (i >= total) {
-    iniciarMissaoFase();
-    return;
+  const audio = $("quiz-audio");
+  if (cfg.audioTexto) {
+    audio.hidden = false;
+    audio.onclick = () => ctx.speak(cfg.audioTexto);
+  } else {
+    audio.hidden = true;
+    audio.onclick = null;
   }
 
-  const q = lista[i];
-  $("praticar-progresso").style.width = `${(i / total) * 100}%`;
-  $("praticar-contador").textContent = `Pergunta ${i + 1} de ${total}`;
-  $("praticar-frase").textContent = q.frase;
+  $("quiz-prompt").textContent = cfg.prompt || "";
+  $("quiz-ordenar").hidden = true;
+  $("btn-quiz-verificar").hidden = true;
 
-  const fb = $("praticar-feedback");
+  const fb = $("quiz-feedback");
   fb.className = "feedback";
   limpar(fb);
-  $("btn-praticar-proximo").hidden = true;
+  $("btn-quiz-proximo").hidden = true;
 
-  const cont = $("praticar-opcoes");
+  const cont = $("quiz-opcoes");
+  cont.hidden = false;
   limpar(cont);
-  q.opcoes.forEach((op, idx) => {
-    cont.appendChild(botaoOpcao(op, (e) => responderPraticar(e.currentTarget, idx, q)));
+  cfg.opcoes.forEach((op, idx) => {
+    cont.appendChild(
+      botaoOpcao(op, (e) => {
+        const botoes = [...cont.querySelectorAll(".opcao")];
+        botoes.forEach((b) => (b.disabled = true));
+        const acertou = idx === cfg.correta;
+        if (acertou) {
+          e.currentTarget.classList.add("correta", "balanca");
+          fb.className = "feedback ok";
+          fb.textContent = "✅ Muito bem! +10";
+        } else {
+          e.currentTarget.classList.add("errada", "treme");
+          botoes[cfg.correta]?.classList.add("correta");
+          fb.className = "feedback erro";
+          const l = document.createElement("span");
+          l.textContent = "❌ Veja a resposta certa.";
+          const d = document.createElement("span");
+          d.className = "dica";
+          d.textContent = cfg.dica || "";
+          fb.append(l, d);
+        }
+        cfg.onResponder && cfg.onResponder(acertou);
+        const prox = $("btn-quiz-proximo");
+        prox.hidden = false;
+        prox.textContent = cfg.rotuloProximo || "Continuar ➡️";
+        prox.onclick = cfg.aoProximo;
+      })
+    );
   });
 }
 
-function responderPraticar(botao, idx, q) {
-  const cont = $("praticar-opcoes");
-  const botoes = [...cont.querySelectorAll(".opcao")];
-  botoes.forEach((b) => (b.disabled = true));
+function quizRenderOrdenar(item, cfg) {
+  $("quiz-tag").textContent = cfg.tag;
+  $("quiz-progresso").style.width = `${cfg.progresso * 100}%`;
+  $("quiz-contador").textContent = cfg.contador;
+  $("quiz-audio").hidden = true;
+  $("quiz-audio").onclick = null;
+  $("quiz-prompt").textContent = "🔤 Toque nas palavras para formar a frase correta:";
+  $("quiz-opcoes").hidden = true;
+  limpar($("quiz-opcoes"));
 
-  const fb = $("praticar-feedback");
-  const acertou = idx === q.correta;
+  const fb = $("quiz-feedback");
+  fb.className = "feedback";
+  limpar(fb);
+  $("btn-quiz-proximo").hidden = true;
 
-  if (acertou) {
-    botao.classList.add("correta", "balanca");
-    jogo.pontos += PONTOS_PRATICAR;
-    jogo.praticarAcertos++;
-    fb.className = "feedback ok";
-    fb.textContent = "✅ Muito bem! +10";
-  } else {
-    botao.classList.add("errada", "treme");
-    botoes[q.correta]?.classList.add("correta");
-    fb.className = "feedback erro";
-    const linha = document.createElement("span");
-    linha.textContent = "❌ Ops! A resposta certa está marcada.";
-    const dica = document.createElement("span");
-    dica.className = "dica";
-    dica.textContent = q.dica || "";
-    fb.append(linha, dica);
-    registrarErro(q.frase, q.opcoes, q.correta, q.dica);
+  const wrap = $("quiz-ordenar");
+  wrap.hidden = false;
+  const resp = $("ordenar-resposta");
+  const banco = $("ordenar-banco");
+  const estado = { resposta: [], disponiveis: item.palavras.map((p) => ({ p, usado: false })), travado: false };
+
+  function chip(texto, onClick) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.textContent = texto;
+    b.addEventListener("click", onClick);
+    return b;
   }
+  function redraw() {
+    limpar(resp);
+    limpar(banco);
+    estado.resposta.forEach((w, ri) => {
+      resp.appendChild(
+        chip(w.p, () => {
+          if (estado.travado) return;
+          w.usado = false;
+          estado.resposta.splice(ri, 1);
+          redraw();
+        })
+      );
+    });
+    estado.disponiveis.forEach((w) => {
+      if (w.usado) return;
+      banco.appendChild(
+        chip(w.p, () => {
+          if (estado.travado) return;
+          w.usado = true;
+          estado.resposta.push(w);
+          redraw();
+        })
+      );
+    });
+  }
+  redraw();
 
-  const prox = $("btn-praticar-proximo");
-  prox.hidden = false;
-  prox.textContent = jogo.praticarIdx + 1 >= jogo.missao.praticar.length ? "Ir para o desafio 🚀" : "Continuar ➡️";
+  const verificar = $("btn-quiz-verificar");
+  verificar.hidden = false;
+  verificar.textContent = "Verificar";
+  verificar.onclick = () => {
+    if (estado.resposta.length !== item.correta.length) {
+      fb.className = "feedback erro";
+      fb.textContent = "Use todas as palavras.";
+      return;
+    }
+    estado.travado = true;
+    const montada = estado.resposta.map((w) => w.p).join(" ");
+    const acertou = normalizar(montada) === normalizar(item.correta.join(" "));
+    if (acertou) {
+      fb.className = "feedback ok";
+      fb.textContent = "✅ Perfeito! +10";
+    } else {
+      fb.className = "feedback erro";
+      const l = document.createElement("span");
+      l.textContent = "❌ Quase! A frase certa é:";
+      const d = document.createElement("span");
+      d.className = "dica";
+      d.textContent = `"${item.fraseOriginal}"`;
+      fb.append(l, d);
+    }
+    cfg.onResponder && cfg.onResponder(acertou);
+    verificar.hidden = true;
+    const prox = $("btn-quiz-proximo");
+    prox.hidden = false;
+    prox.textContent = cfg.rotuloProximo || "Continuar ➡️";
+    prox.onclick = cfg.aoProximo;
+  };
 }
 
 /* ============================================================
-   Fase 3 — Desafio (a missão)
+   Fase 2 — Escutar
    ============================================================ */
+function continuarDeAprender() {
+  if (jogo.escutaFila.length) {
+    ctx.go("praticar");
+    jogo.escutaIdx = 0;
+    renderEscutar();
+  } else {
+    irParaPraticar();
+  }
+}
 
+function renderEscutar() {
+  const fila = jogo.escutaFila;
+  const i = jogo.escutaIdx;
+  if (i >= fila.length) {
+    irParaPraticar();
+    return;
+  }
+  const q = fila[i];
+  ctx.speak(q.en); // toca ao mostrar
+  quizRenderMC({
+    tag: "Fase 2 · Escutar",
+    progresso: i / fila.length,
+    contador: `Escuta ${i + 1} de ${fila.length}`,
+    audioTexto: q.en,
+    prompt: "🎧 Ouça e escolha o significado:",
+    opcoes: q.opcoes,
+    correta: q.correta,
+    dica: q.dica,
+    rotuloProximo: i + 1 >= fila.length ? "Ir para praticar ➡️" : "Continuar ➡️",
+    onResponder: (acertou) => {
+      if (acertou) {
+        jogo.pontos += PONTOS_QUIZ;
+        jogo.escutaAcertos++;
+      } else {
+        registrarErroMC(`🎧 O que significa "${q.en}"?`, q.opcoes, q.correta, q.dica);
+      }
+    },
+    aoProximo: () => {
+      jogo.escutaIdx++;
+      renderEscutar();
+    },
+  });
+}
+
+/* ============================================================
+   Fase 3 — Praticar (completar + ordenar)
+   ============================================================ */
+function irParaPraticar() {
+  ctx.go("praticar");
+  jogo.praticarIdx = 0;
+  renderPraticar();
+}
+
+function renderPraticar() {
+  const fila = jogo.praticarFila;
+  const i = jogo.praticarIdx;
+  if (i >= fila.length) {
+    iniciarMissaoFase();
+    return;
+  }
+  const item = fila[i];
+  const base = {
+    tag: "Fase 3 · Praticar",
+    progresso: i / fila.length,
+    contador: `Pergunta ${i + 1} de ${fila.length}`,
+    rotuloProximo: i + 1 >= fila.length ? "Ir para o desafio 🚀" : "Continuar ➡️",
+    aoProximo: () => {
+      jogo.praticarIdx++;
+      renderPraticar();
+    },
+  };
+
+  if (item.tipo === "ordenar") {
+    quizRenderOrdenar(item, {
+      ...base,
+      onResponder: (acertou) => {
+        if (acertou) {
+          jogo.pontos += PONTOS_QUIZ;
+          jogo.praticarAcertos++;
+        }
+      },
+    });
+  } else {
+    quizRenderMC({
+      ...base,
+      audioTexto: null,
+      prompt: item.frase,
+      opcoes: item.opcoes,
+      correta: item.correta,
+      dica: item.dica,
+      onResponder: (acertou) => {
+        if (acertou) {
+          jogo.pontos += PONTOS_QUIZ;
+          jogo.praticarAcertos++;
+        } else {
+          registrarErroMC(item.frase, item.opcoes, item.correta, item.dica);
+        }
+      },
+    });
+  }
+}
+
+/* ============================================================
+   Fase 4 — Desafio (a missão)
+   ============================================================ */
 function iniciarMissaoFase() {
   ctx.go("missao");
   renderVidas();
-  // mostra a abertura na primeira etapa via narração combinada
   renderMissao(true);
 }
 
@@ -191,15 +453,12 @@ function renderMissao(comAbertura = false) {
   const etapas = jogo.missao.missao.etapas;
   const total = etapas.length;
   const i = jogo.etapaIdx;
-
   if (i >= total) {
     concluirMissao();
     return;
   }
-
   const etapa = etapas[i];
   $("missao-progresso").style.width = `${(i / total) * 100}%`;
-
   const abertura = comAbertura && i === 0 ? `${jogo.missao.missao.abertura}\n\n` : "";
   $("missao-narracao").textContent = abertura + (etapa.narracao || "");
   $("missao-pergunta").textContent = etapa.pergunta || "";
@@ -219,7 +478,6 @@ function renderMissao(comAbertura = false) {
 function responderMissao(botao, idx, etapa) {
   const botoes = [...$("missao-opcoes").querySelectorAll(".opcao")];
   botoes.forEach((b) => (b.disabled = true));
-
   const fb = $("missao-feedback");
   const acertou = idx === etapa.correta;
 
@@ -242,12 +500,7 @@ function responderMissao(botao, idx, etapa) {
     dica.className = "dica";
     dica.textContent = etapa.feedback_erro || "";
     fb.append(linha, dica);
-    registrarErro(
-      `${etapa.narracao || ""} ${etapa.pergunta || ""}`.trim(),
-      etapa.opcoes,
-      etapa.correta,
-      etapa.feedback_erro
-    );
+    registrarErroMC(`${etapa.narracao || ""} ${etapa.pergunta || ""}`.trim(), etapa.opcoes, etapa.correta, etapa.feedback_erro);
 
     if (jogo.vidas <= 0) {
       const prox = $("btn-missao-proximo");
@@ -277,12 +530,11 @@ function concluirMissao() {
 }
 
 /* ============================================================
-   Resultado e revisão
+   Resultado e revisão do jogo
    ============================================================ */
-
 function calcularEstrelas() {
-  const total = jogo.missao.praticar.length + jogo.missao.missao.etapas.length;
-  const acertos = jogo.praticarAcertos + jogo.missaoAcertos;
+  const total = jogo.escutaFila.length + jogo.praticarFila.length + jogo.missao.missao.etapas.length;
+  const acertos = jogo.escutaAcertos + jogo.praticarAcertos + jogo.missaoAcertos;
   const razao = total ? acertos / total : 0;
   if (razao >= 0.85) return 3;
   if (razao >= 0.6) return 2;
@@ -297,115 +549,231 @@ function mostrarResultado() {
 
   const det = $("resultado-detalhe");
   limpar(det);
-  const l1 = document.createElement("div");
-  l1.textContent = `Praticar: ${jogo.praticarAcertos}/${jogo.missao.praticar.length} acertos`;
-  const l2 = document.createElement("div");
-  l2.textContent = `Desafio: ${jogo.missaoAcertos}/${jogo.missao.missao.etapas.length} acertos`;
-  det.append(l1, l2);
+  const linhas = [
+    `Escutar: ${jogo.escutaAcertos}/${jogo.escutaFila.length} acertos`,
+    `Praticar: ${jogo.praticarAcertos}/${jogo.praticarFila.length} acertos`,
+    `Desafio: ${jogo.missaoAcertos}/${jogo.missao.missao.etapas.length} acertos`,
+  ];
+  linhas.forEach((t) => {
+    const d = document.createElement("div");
+    d.textContent = t;
+    det.appendChild(d);
+  });
 
-  const blocoRev = $("bloco-revisao");
-  blocoRev.hidden = jogo.errosRevisao.length === 0;
-
+  $("bloco-revisao").hidden = jogo.errosRevisao.length === 0;
   ctx.go("resultado");
 }
 
-function registrarErro(texto, opcoes, correta, dica) {
-  jogo.errosRevisao.push({ texto, opcoes: opcoes.slice(), correta, dica: dica || "" });
-}
-
-/** Inicia a rodada de revisão: só os erros, opções embaralhadas. */
-export function iniciarRevisao() {
-  if (!jogo || jogo.errosRevisao.length === 0) return;
-  const lista = jogo.errosRevisao.map((q) => {
-    const emb = embaralharOpcoes(q.opcoes, q.correta);
-    return { texto: q.texto, opcoes: emb.opcoes, correta: emb.correta, dica: q.dica };
-  });
-  jogo.revisao = { lista: embaralhar(lista), idx: 0, acertos: 0 };
+/* ---------- Rodada de revisão (genérica) ---------- */
+function rodarRevisao(itens, modo) {
+  // itens: [{ chave?, texto, opcoes, correta, dica }]
+  revState = { lista: itens, idx: 0, acertos: 0, modo };
   ctx.go("praticar");
   renderRevisao();
 }
 
 function renderRevisao() {
-  const r = jogo.revisao;
-  const total = r.lista.length;
-  const i = r.idx;
-
-  if (i >= total) {
-    // Terminou a revisão: volta ao resultado.
-    jogo.revisao = null;
-    mostrarResultado();
+  const { lista, idx, modo } = revState;
+  if (idx >= lista.length) {
+    terminarRevisao();
     return;
   }
-
-  const q = r.lista[i];
-  $("praticar-progresso").style.width = `${(i / total) * 100}%`;
-  $("praticar-contador").textContent = `Revisão ${i + 1} de ${total}`;
-  $("praticar-frase").textContent = q.texto;
-
-  const fb = $("praticar-feedback");
-  fb.className = "feedback";
-  limpar(fb);
-  $("btn-praticar-proximo").hidden = true;
-
-  const cont = $("praticar-opcoes");
-  limpar(cont);
-  q.opcoes.forEach((op, idx) => {
-    cont.appendChild(botaoOpcao(op, (e) => responderRevisao(e.currentTarget, idx, q)));
+  const q = lista[idx];
+  quizRenderMC({
+    tag: "🔁 Revisão",
+    progresso: idx / lista.length,
+    contador: `Revisão ${idx + 1} de ${lista.length}`,
+    audioTexto: null,
+    prompt: q.texto,
+    opcoes: q.opcoes,
+    correta: q.correta,
+    dica: q.dica,
+    rotuloProximo: idx + 1 >= lista.length ? "Terminar revisão 🏁" : "Continuar ➡️",
+    onResponder: (acertou) => {
+      if (acertou) revState.acertos++;
+      if (modo === "global" && q.chave) registrarRevisaoGlobal(q.chave, acertou);
+    },
+    aoProximo: () => {
+      revState.idx++;
+      renderRevisao();
+    },
   });
 }
 
-function responderRevisao(botao, idx, q) {
-  const botoes = [...$("praticar-opcoes").querySelectorAll(".opcao")];
-  botoes.forEach((b) => (b.disabled = true));
-  const fb = $("praticar-feedback");
-
-  if (idx === q.correta) {
-    botao.classList.add("correta", "balanca");
-    jogo.revisao.acertos++;
-    fb.className = "feedback ok";
-    fb.textContent = "✅ Agora sim!";
+function terminarRevisao() {
+  const modo = revState.modo;
+  const acertos = revState.acertos;
+  const total = revState.lista.length;
+  revState = null;
+  if (modo === "global") {
+    ctx.go("inicio");
+    ctx.avisoInicio(`Revisão concluída: ${acertos}/${total} acertos. 👏`, true);
   } else {
-    botao.classList.add("errada", "treme");
-    botoes[q.correta]?.classList.add("correta");
+    mostrarResultado();
+  }
+}
+
+/** Revisão dos erros desta partida (chamada no resultado). */
+export function iniciarRevisao() {
+  if (!jogo || jogo.errosRevisao.length === 0) return;
+  const itens = embaralhar(jogo.errosRevisao).map((q) => {
+    const emb = embaralharOpcoes(q.opcoes, q.correta);
+    return { texto: q.texto, opcoes: emb.opcoes, correta: emb.correta, dica: q.dica };
+  });
+  rodarRevisao(itens, "jogo");
+}
+
+/** Revisão dos erros acumulados de todas as partidas (chamada no início). */
+export function iniciarRevisaoGlobal() {
+  const lista = proximaRevisaoGlobal(10);
+  if (!lista.length) {
+    ctx.avisoInicio("Você ainda não tem erros para revisar. Jogue uma missão primeiro! 🎯");
+    return;
+  }
+  const itens = lista.map((e) => {
+    const emb = embaralharOpcoes(e.opcoes, e.correta);
+    return { chave: e.chave, texto: e.texto, opcoes: emb.opcoes, correta: emb.correta, dica: e.dica };
+  });
+  rodarRevisao(itens, "global");
+}
+
+/* ============================================================
+   Treino de Fala (Web Speech Recognition)
+   ============================================================ */
+function reconhecimentoDisponivel() {
+  return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+
+function razaoFala(transcricao, alvo) {
+  const t = normalizar(transcricao).split(" ").filter(Boolean);
+  const a = normalizar(alvo).split(" ").filter(Boolean);
+  if (!a.length) return 0;
+  const resto = [...t];
+  let ok = 0;
+  a.forEach((w) => {
+    const idx = resto.indexOf(w);
+    if (idx >= 0) {
+      ok++;
+      resto.splice(idx, 1);
+    }
+  });
+  return ok / a.length;
+}
+
+function treinarFala() {
+  jogo.falarIdx = 0;
+  $("btn-falar-microfone").onclick = () => falarMicrofone();
+  $("btn-falar-ouvir").onclick = () => ctx.speak(jogo.falarFila[jogo.falarIdx]?.alvo);
+  $("btn-falar-pular").onclick = () => proximoFalar();
+  $("btn-falar-proximo").onclick = () => proximoFalar();
+  $("btn-falar-voltar").onclick = () => ctx.go("aprender");
+  ctx.go("falar");
+  renderFalar();
+}
+
+function renderFalar() {
+  const fila = jogo.falarFila;
+  const i = jogo.falarIdx;
+  const fb = $("falar-feedback");
+  fb.className = "feedback";
+  fb.textContent = "";
+  $("btn-falar-proximo").hidden = true;
+
+  if (!fila.length) {
+    $("falar-contador").textContent = "";
+    $("falar-prompt").textContent = "Sem frases para treinar nesta missão.";
+    $("falar-alvo").textContent = "";
+    $("falar-traducao").textContent = "";
+    ["btn-falar-microfone", "btn-falar-ouvir", "btn-falar-pular"].forEach((id) => ($(id).hidden = true));
+    return;
+  }
+  if (i >= fila.length) {
+    $("falar-contador").textContent = "";
+    $("falar-prompt").textContent = `Treino concluído! 👏 (${jogo.falarAcertos}/${fila.length})`;
+    $("falar-alvo").textContent = "";
+    $("falar-traducao").textContent = "";
+    ["btn-falar-microfone", "btn-falar-ouvir", "btn-falar-pular"].forEach((id) => ($(id).hidden = true));
+    return;
+  }
+  const q = fila[i];
+  $("falar-contador").textContent = `Fala ${i + 1} de ${fila.length}`;
+  $("falar-prompt").textContent = "🎤 Leia em voz alta:";
+  $("falar-alvo").textContent = q.alvo;
+  $("falar-traducao").textContent = q.pt ? `(${q.pt})` : "";
+  $("btn-falar-microfone").hidden = false;
+  $("btn-falar-microfone").textContent = "🎤 Falar";
+  $("btn-falar-microfone").disabled = false;
+  $("btn-falar-ouvir").hidden = false;
+  $("btn-falar-pular").hidden = false;
+}
+
+function proximoFalar() {
+  jogo.falarIdx++;
+  renderFalar();
+}
+
+function falarMicrofone() {
+  const fb = $("falar-feedback");
+  const alvo = jogo.falarFila[jogo.falarIdx]?.alvo;
+  if (!alvo) return;
+
+  if (!reconhecimentoDisponivel()) {
+    fb.className = "feedback";
+    fb.textContent = "🎧 Reconhecimento de voz indisponível neste navegador. Ouça e siga.";
+    $("btn-falar-proximo").hidden = false;
+    return;
+  }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new SR();
+  rec.lang = "en-US";
+  rec.interimResults = false;
+  rec.maxAlternatives = 3;
+
+  const btn = $("btn-falar-microfone");
+  btn.textContent = "🔴 Ouvindo…";
+  btn.disabled = true;
+  fb.className = "feedback";
+  fb.textContent = "";
+
+  rec.onresult = (e) => {
+    const alts = [...e.results[0]].map((r) => r.transcript);
+    const melhor = Math.max(...alts.map((a) => razaoFala(a, alvo)));
+    if (melhor >= 0.6) {
+      jogo.falarAcertos++;
+      jogo.pontos += PONTOS_QUIZ;
+      fb.className = "feedback ok";
+      fb.textContent = `✅ Muito bem! Ouvi: "${alts[0]}"`;
+    } else {
+      fb.className = "feedback erro";
+      const l = document.createElement("span");
+      l.textContent = `Ouvi: "${alts[0] || "—"}". Tente de novo ou siga.`;
+      const d = document.createElement("span");
+      d.className = "dica";
+      d.textContent = `Alvo: "${alvo}"`;
+      fb.append(l, d);
+    }
+    $("btn-falar-proximo").hidden = false;
+    btn.textContent = "🎤 Tentar de novo";
+    btn.disabled = false;
+  };
+  rec.onerror = () => {
     fb.className = "feedback erro";
-    const linha = document.createElement("span");
-    linha.textContent = "❌ Ainda não. Veja a resposta certa.";
-    const dica = document.createElement("span");
-    dica.className = "dica";
-    dica.textContent = q.dica || "";
-    fb.append(linha, dica);
+    fb.textContent = "Não consegui ouvir. Verifique o microfone e tente de novo.";
+    btn.textContent = "🎤 Falar";
+    btn.disabled = false;
+    $("btn-falar-proximo").hidden = false;
+  };
+  rec.onend = () => {
+    if (btn.textContent === "🔴 Ouvindo…") {
+      btn.textContent = "🎤 Falar";
+      btn.disabled = false;
+    }
+  };
+  try {
+    rec.start();
+  } catch {
+    btn.textContent = "🎤 Falar";
+    btn.disabled = false;
   }
-
-  const prox = $("btn-praticar-proximo");
-  prox.hidden = false;
-  prox.textContent = jogo.revisao.idx + 1 >= jogo.revisao.lista.length ? "Terminar revisão 🏁" : "Continuar ➡️";
-}
-
-/* ---------- ligações dos botões "Continuar" ---------- */
-
-export function proximoPraticar() {
-  if (jogo.revisao) {
-    jogo.revisao.idx++;
-    renderRevisao();
-  } else {
-    jogo.praticarIdx++;
-    renderPraticar();
-  }
-}
-
-export function irParaPraticar() {
-  ctx.go("praticar");
-  renderPraticar();
-}
-
-/** Reinicia a mesma missão do zero. */
-export function jogarDeNovo() {
-  iniciarJogo(jogo.missao, ctx);
-}
-
-export function temMissaoAtual() {
-  return !!jogo;
-}
-export function missaoAtual() {
-  return jogo ? jogo.missao : null;
 }
