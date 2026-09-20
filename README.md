@@ -68,8 +68,9 @@ Opção A para testar o jogo sem IA.
 1. Acesse **https://aistudio.google.com/apikey** e faça login com uma conta Google.
 2. Clique em **Create API key** e copie a chave.
 3. Confira em **https://aistudio.google.com/** o nome de um modelo **Flash**
-   disponível no plano gratuito (ex.: `gemini-2.0-flash`). Para trocar o modelo,
-   defina a variável `GEMINI_MODEL` (o padrão já é `gemini-2.0-flash`).
+   disponível no plano gratuito (ex.: `gemini-3.6-flash`). Para trocar o modelo,
+   defina a variável `GEMINI_MODEL` (o padrão já é `gemini-3.6-flash`; a função
+   ainda tenta modelos alternativos automaticamente se o configurado sair do ar).
 
 ## Publicar na Vercel
 

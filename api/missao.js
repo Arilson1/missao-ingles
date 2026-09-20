@@ -145,11 +145,15 @@ module.exports = async function handler(req, res) {
   const pedido = { tema, cenario, nivel };
   const debug = /[?&]debug=1\b/.test(req.url || "");
 
-  // Gera com até 1 retry. O 429 é repassado imediatamente.
+  // Tenta os modelos candidatos em ordem (resiliente a descontinuações).
+  // O 429 é repassado imediatamente.
   const diag = [];
   try {
-    let missao = await gerarMissao(pedido, diag);
-    if (!missao) missao = await gerarMissao(pedido, diag); // 2ª tentativa
+    let missao = null;
+    for (const model of modelosCandidatos()) {
+      missao = await gerarMissao(pedido, model, diag);
+      if (missao) break;
+    }
     if (!missao) {
       console.error("[missao] falha ao gerar:", JSON.stringify(diag));
       const corpo = { erro: "Não conseguimos preparar a missão. Tente de novo." };
@@ -189,8 +193,19 @@ function lerCorpoBruto(req) {
  * Retorna a missão válida, ou null se a resposta for inválida.
  * Lança { status: 429 } se o Gemini estiver com limite estourado.
  */
-async function gerarMissao(pedido, diag = []) {
-  const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+// Modelos a tentar, em ordem. Começa pelo configurado (se houver) e cai
+// para alternativas Flash gratuitas caso algum tenha sido descontinuado.
+function modelosCandidatos() {
+  const lista = [
+    process.env.GEMINI_MODEL,
+    "gemini-3.6-flash",
+    "gemini-2.5-flash",
+    "gemini-flash-latest",
+  ];
+  return [...new Set(lista.filter(Boolean))].slice(0, 4);
+}
+
+async function gerarMissao(pedido, model, diag = []) {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
   const userText = [

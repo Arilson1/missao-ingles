@@ -11,7 +11,7 @@ binding = "ASSETS"
 
 [vars]
 # Modelo Flash do plano gratuito. Confira o nome atual no Google AI Studio.
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-3.6-flash"
 
 # A chave fica em secret, nunca aqui:
 #   npx wrangler secret put GEMINI_API_KEY

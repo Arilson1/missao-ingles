@@ -170,7 +170,7 @@ export default {
  * Lança { status: 429 } se o Gemini estiver com limite estourado.
  */
 async function gerarMissao(env, pedido) {
-  const model = env.GEMINI_MODEL || "gemini-2.0-flash";
+  const model = env.GEMINI_MODEL || "gemini-3.6-flash";
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
   const userText = [
