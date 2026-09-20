@@ -1,7 +1,7 @@
 // sw.js — service worker do Missão Inglês.
 // Cache-first para os arquivos estáticos; a API vai sempre à rede.
 
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const CACHE_NOME = `missao-ingles-${CACHE_VERSION}`;
 
 const ARQUIVOS = [
@@ -39,8 +39,8 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // NUNCA fazer cache da API: sempre rede.
-  if (url.pathname.startsWith("/api/")) {
+  // NUNCA fazer cache da API nem do analytics: sempre rede.
+  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/_vercel/")) {
     return; // deixa o navegador tratar (vai à rede)
   }
 
