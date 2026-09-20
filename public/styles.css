@@ -338,6 +338,34 @@ html, body {
 .ordenar-resposta .chip { border-color: var(--verde); background: color-mix(in srgb, var(--verde) 15%, var(--card)); }
 .ordenar-resposta:empty::before { content: "Toque nas palavras abaixo…"; color: var(--texto-suave); align-self: center; }
 
+/* ---------- Diálogo (balões de conversa) ---------- */
+.dialogo-linhas { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 18px; }
+.bolha {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 18px;
+  border: 2px solid var(--borda);
+  background: var(--card);
+  position: relative;
+}
+.bolha.esq { align-self: flex-start; border-bottom-left-radius: 4px; }
+.bolha.dir {
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+  background: color-mix(in srgb, var(--roxo) 12%, var(--card));
+  border-color: color-mix(in srgb, var(--roxo) 30%, var(--borda));
+}
+.bolha-quem { font-size: 0.72rem; font-weight: 700; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 0.03em; }
+.bolha-en { font-weight: 700; }
+.bolha-pt { color: var(--texto-suave); font-size: 0.9rem; }
+.bolha-audio {
+  background: color-mix(in srgb, var(--azul) 15%, var(--card));
+  border: none; border-radius: 50%; width: 36px; height: 36px; font-size: 1rem;
+  cursor: pointer; margin-top: 6px;
+}
+.bolha-audio:active { transform: scale(0.9); }
+.bolha.falando { border-color: var(--verde); box-shadow: 0 0 0 3px color-mix(in srgb, var(--verde) 25%, transparent); }
+
 /* ---------- Falar ---------- */
 #falar-alvo { text-align: center; color: var(--roxo); }
 @media (prefers-color-scheme: dark) { #falar-alvo { color: var(--verde-claro); } }

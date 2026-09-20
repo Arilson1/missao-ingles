@@ -34,6 +34,7 @@ const estado = {
    Navegação entre telas
    ============================================================ */
 function go(tela) {
+  try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {}
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("is-active"));
   const el = $(`screen-${tela}`);
   if (el) el.classList.add("is-active");
@@ -80,7 +81,49 @@ function speak(texto) {
   }
 }
 
-const ctx = { go, speak, avisoInicio };
+// Toca um diálogo em sequência, com vozes/tons diferentes por personagem.
+// Chama aoFalar(i) ao iniciar cada fala e aoFim() no final.
+function speakDialogo(linhas, aoFalar, aoFim) {
+  try {
+    if (!("speechSynthesis" in window)) {
+      aoFim && aoFim();
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const vozes = window.speechSynthesis.getVoices().filter((v) => /^en(-|_)/i.test(v.lang));
+    const vozDe = {};
+    const tomDe = {};
+    let i = 0;
+    function proxima() {
+      if (i >= linhas.length) {
+        aoFim && aoFim();
+        return;
+      }
+      const idx = i++;
+      const l = linhas[idx];
+      const quem = l.quem || "A";
+      if (!(quem in vozDe)) {
+        const n = Object.keys(vozDe).length;
+        vozDe[quem] = vozes.length ? vozes[n % vozes.length] : null;
+        tomDe[quem] = n % 2 === 0 ? 1.0 : 1.35; // alterna o tom se só houver uma voz
+      }
+      aoFalar && aoFalar(idx);
+      const u = new SpeechSynthesisUtterance(l.en);
+      u.lang = "en-US";
+      u.rate = 0.95;
+      if (vozDe[quem]) u.voice = vozDe[quem];
+      else u.pitch = tomDe[quem];
+      u.onend = proxima;
+      u.onerror = proxima;
+      window.speechSynthesis.speak(u);
+    }
+    proxima();
+  } catch {
+    aoFim && aoFim();
+  }
+}
+
+const ctx = { go, speak, avisoInicio, speakDialogo };
 
 /* ============================================================
    Tela inicial

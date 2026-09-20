@@ -52,6 +52,17 @@
       "dica": "Abrimos a janela (window) para arejar."
     }
   ],
+  "dialogo": {
+    "titulo": "Chegando em casa",
+    "linhas": [
+      { "quem": "Mom", "en": "Hi! Welcome home. How was school?", "pt": "Oi! Bem-vindo em casa. Como foi a escola?" },
+      { "quem": "You", "en": "It was good, thanks. I'm hungry.", "pt": "Foi boa, obrigado. Estou com fome." },
+      { "quem": "Mom", "en": "There is food in the kitchen.", "pt": "Tem comida na cozinha." },
+      { "quem": "You", "en": "Great! Can I eat in the living room?", "pt": "Ótimo! Posso comer na sala?" },
+      { "quem": "Mom", "en": "Yes, but please close the window first.", "pt": "Sim, mas por favor feche a janela primeiro." },
+      { "quem": "You", "en": "Okay, Mom. I will do it now.", "pt": "Tá bom, mãe. Vou fazer isso agora." }
+    ]
+  },
   "missao": {
     "abertura": "You arrive home after school. Your mom asks you to help around the house.",
     "etapas": [

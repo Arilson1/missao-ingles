@@ -58,6 +58,7 @@ export function iniciarJogo(missao) {
     missao,
     pontos: 0,
     vidas: 3,
+    dialogo: dialogoValido(missao.dialogo) ? missao.dialogo : null,
     escutaFila: gerarEscuta(missao.aprender),
     escutaIdx: 0,
     escutaAcertos: 0,
@@ -133,6 +134,10 @@ function gerarFalar(aprender) {
   return embaralhar((aprender || []).filter((a) => a.exemplo))
     .slice(0, 5)
     .map((a) => ({ alvo: a.exemplo, pt: a.pt, en: a.en }));
+}
+
+function dialogoValido(d) {
+  return d && Array.isArray(d.linhas) && d.linhas.length >= 2 && d.linhas.every((l) => l && l.en);
 }
 
 /* ---------- registro de erros ---------- */
@@ -335,6 +340,15 @@ function quizRenderOrdenar(item, cfg) {
    Fase 2 — Escutar
    ============================================================ */
 function continuarDeAprender() {
+  if (jogo.dialogo) {
+    ctx.go("dialogo");
+    renderDialogo();
+  } else {
+    irParaEscutarOuPraticar();
+  }
+}
+
+function irParaEscutarOuPraticar() {
   if (jogo.escutaFila.length) {
     ctx.go("praticar");
     jogo.escutaIdx = 0;
@@ -342,6 +356,68 @@ function continuarDeAprender() {
   } else {
     irParaPraticar();
   }
+}
+
+/* ============================================================
+   Fase Diálogo (conversa simples — ler e ouvir)
+   ============================================================ */
+function renderDialogo() {
+  const d = jogo.dialogo;
+  $("dialogo-titulo").textContent = d.titulo || "Diálogo";
+
+  const cont = $("dialogo-linhas");
+  limpar(cont);
+
+  // define o lado de cada personagem: o 1º que fala fica à esquerda.
+  const lados = {};
+  d.linhas.forEach((l) => {
+    const quem = l.quem || "A";
+    if (!(quem in lados)) lados[quem] = Object.keys(lados).length === 0 ? "esq" : "dir";
+  });
+
+  d.linhas.forEach((l, i) => {
+    const bolha = document.createElement("div");
+    bolha.className = `bolha ${lados[l.quem || "A"] || "esq"}`;
+    bolha.dataset.i = i;
+
+    const quem = document.createElement("div");
+    quem.className = "bolha-quem";
+    quem.textContent = l.quem || "";
+    const en = document.createElement("div");
+    en.className = "bolha-en";
+    en.textContent = l.en || "";
+    const pt = document.createElement("div");
+    pt.className = "bolha-pt";
+    pt.textContent = l.pt || "";
+    const audio = document.createElement("button");
+    audio.type = "button";
+    audio.className = "bolha-audio";
+    audio.textContent = "🔊";
+    audio.setAttribute("aria-label", "Ouvir esta fala");
+    audio.addEventListener("click", () => ctx.speak(l.en));
+
+    bolha.append(quem, en, pt, audio);
+    cont.appendChild(bolha);
+  });
+
+  $("btn-dialogo-ouvir").onclick = () => tocarDialogo();
+  $("btn-dialogo-continuar").onclick = () => irParaEscutarOuPraticar();
+}
+
+function tocarDialogo() {
+  const cont = $("dialogo-linhas");
+  const bolhas = [...cont.querySelectorAll(".bolha")];
+  ctx.speakDialogo(
+    jogo.dialogo.linhas,
+    (i) => {
+      bolhas.forEach((b) => b.classList.remove("falando"));
+      if (i >= 0 && bolhas[i]) {
+        bolhas[i].classList.add("falando");
+        bolhas[i].scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+    },
+    () => bolhas.forEach((b) => b.classList.remove("falando"))
+  );
 }
 
 function renderEscutar() {
