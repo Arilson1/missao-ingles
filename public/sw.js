@@ -1,7 +1,7 @@
 // sw.js — service worker do Missão Inglês.
 // Cache-first para os arquivos estáticos; a API vai sempre à rede.
 
-const CACHE_VERSION = "v4";
+const CACHE_VERSION = "v5";
 const CACHE_NOME = `missao-ingles-${CACHE_VERSION}`;
 
 const ARQUIVOS = [

@@ -16,6 +16,7 @@ const CENARIOS_PERMITIDOS = [
   "festa",
   "viagem",
   "entrevista",
+  "livre",
 ];
 
 const NIVEIS = ["basico", "intermediario"];
@@ -213,9 +214,14 @@ function modelosCandidatos() {
 async function gerarMissao(pedido, model, diag = []) {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
+  const linhaCenario =
+    pedido.cenario === "livre"
+      ? `CENÁRIO: livre — não use um cenário fixo. Foque só no TEMA, com exemplos simples e variados do dia a dia, e crie uma narrativa curta e leve para a missão.`
+      : `CENÁRIO: ${pedido.cenario}`;
+
   const userText = [
     `TEMA: ${pedido.tema}`,
-    `CENÁRIO: ${pedido.cenario}`,
+    linhaCenario,
     `NÍVEL: ${pedido.nivel}`,
     `Gere 7 itens em "aprender", 6 em "praticar" e 5 a 6 etapas na missão. Cada pergunta com exatamente 4 opções.`,
   ].join("\n");

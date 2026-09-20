@@ -18,6 +18,7 @@ const CENARIOS = [
   { id: "festa", emoji: "🎉", nome: "Festa" },
   { id: "viagem", emoji: "🧳", nome: "Viagem" },
   { id: "entrevista", emoji: "🤝", nome: "Entrevista" },
+  { id: "livre", emoji: "🎯", nome: "Tema livre" },
   { id: "surpresa", emoji: "🎲", nome: "Surpresa" },
 ];
 const emojiCenario = (id) => (CENARIOS.find((c) => c.id === id) || {}).emoji || "🎯";
@@ -198,13 +199,10 @@ async function jogar(pedido) {
       mostrarAvisoInicio("Escreva o que você estudou na última aula.");
       return;
     }
-    if (!estado.cenario) {
-      mostrarAvisoInicio("Escolha um cenário para a missão.");
-      return;
-    }
-    let cenario = estado.cenario;
+    // Sem cenário escolhido → tema livre (para temas como números, ABC…).
+    let cenario = estado.cenario || "livre";
     if (cenario === "surpresa") {
-      const opcoes = CENARIOS.filter((c) => c.id !== "surpresa");
+      const opcoes = CENARIOS.filter((c) => c.id !== "surpresa" && c.id !== "livre");
       cenario = opcoes[Math.floor(Math.random() * opcoes.length)].id;
     }
     req = { tema, cenario, nivel: estado.nivel };
@@ -232,7 +230,10 @@ async function jogar(pedido) {
 function mostrarCarregando(cenario) {
   go("carregando");
   $("carregando-msg").hidden = false;
-  $("carregando-msg").textContent = `Preparando sua missão no ${nomeCenario(cenario).toLowerCase()}… 🎯`;
+  $("carregando-msg").textContent =
+    cenario === "livre"
+      ? "Preparando sua missão sobre o tema… 🎯"
+      : `Preparando sua missão no ${nomeCenario(cenario).toLowerCase()}… 🎯`;
   $("carregando-erro").hidden = true;
 }
 
