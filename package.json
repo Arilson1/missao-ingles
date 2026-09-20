@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "Jogo de reforço de inglês com missões geradas por IA (front + função serverless).",
+  "scripts": {
+    "icons": "node scripts/gen-icons.js"
+  },
   "engines": {
     "node": ">=18"
   }
