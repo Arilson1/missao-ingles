@@ -172,14 +172,28 @@ module.exports = async function handler(req, res) {
   const pedido = { tema, cenario, nivel };
   const debug = /[?&]debug=1\b/.test(req.url || "");
 
-  // Tenta os modelos candidatos em ordem (resiliente a descontinuações).
-  // O 429 é repassado imediatamente.
+  // Gera gastando o mínimo de chamadas à IA:
+  // - falha transitória/inválida → no máximo 1 retry no MESMO modelo;
+  // - só troca de modelo se o atual foi descontinuado (erro "modelo");
+  // - 429 é repassado imediatamente (não insiste).
   const diag = [];
   try {
+    const modelos = modelosCandidatos();
     let missao = null;
-    for (const model of modelosCandidatos()) {
-      missao = await gerarMissao(pedido, model, diag);
+    for (let mi = 0; mi < modelos.length && !missao; mi++) {
+      const model = modelos[mi];
+      let erro = null;
+      for (let att = 0; att < 2 && !missao; att++) {
+        const r = await gerarMissao(pedido, model, diag);
+        if (r.missao) {
+          missao = r.missao;
+          break;
+        }
+        erro = r.erro;
+        if (erro === "modelo") break; // não retenta o mesmo modelo
+      }
       if (missao) break;
+      if (erro !== "modelo") break; // só troca de modelo em caso de descontinuação
     }
     if (!missao) {
       console.error("[missao] falha ao gerar:", JSON.stringify(diag));
@@ -193,7 +207,11 @@ module.exports = async function handler(req, res) {
     return res.status(200).json(missao);
   } catch (e) {
     if (e && e.status === 429) {
-      return res.status(429).json({ erro: "Muita gente jogando agora, tente em 1 minuto." });
+      const msg =
+        e.quota === "dia"
+          ? "Limite diário da IA gratuita atingido. Jogue uma missão salva, ou tente amanhã. 🌙"
+          : "A IA está no limite agora. Espere ~1 minuto e tente de novo — ou jogue uma missão salva. ⏳";
+      return res.status(429).json({ erro: msg });
     }
     console.error("[missao] erro inesperado:", e && (e.stack || e.message || e));
     const corpo = { erro: "Não conseguimos preparar a missão. Tente de novo." };
@@ -269,15 +287,22 @@ async function gerarMissao(pedido, model, diag = []) {
     });
   } catch (e) {
     diag.push(`rede: ${String(e && (e.message || e))} (modelo=${model})`);
-    return null; // erro de rede → deixa o retry tentar
+    return { erro: "transiente" };
   }
 
-  if (resp.status === 429) throw { status: 429 };
+  if (resp.status === 429) {
+    let texto = "";
+    try { texto = await resp.text(); } catch {}
+    const quota = /perday|per day|daily|por dia/i.test(texto) ? "dia" : "min";
+    diag.push(`gemini 429 (${quota})`);
+    throw { status: 429, quota };
+  }
   if (!resp.ok) {
     let texto = "";
     try { texto = await resp.text(); } catch {}
     diag.push(`gemini HTTP ${resp.status} (modelo=${model}): ${texto.slice(0, 300)}`);
-    return null;
+    // 4xx (ex.: 404 modelo inexistente) → vale tentar outro modelo; 5xx → transitório.
+    return { erro: resp.status >= 400 && resp.status < 500 ? "modelo" : "transiente" };
   }
 
   let dados;
@@ -285,7 +310,7 @@ async function gerarMissao(pedido, model, diag = []) {
     dados = await resp.json();
   } catch (e) {
     diag.push(`resposta não-JSON: ${String(e && (e.message || e))}`);
-    return null;
+    return { erro: "transiente" };
   }
 
   // Bloqueio de segurança do Gemini, resposta cortada, etc.
@@ -293,7 +318,7 @@ async function gerarMissao(pedido, model, diag = []) {
   const texto = dados?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!texto) {
     diag.push(`sem texto na resposta (finishReason=${finish || "?"})`);
-    return null;
+    return { erro: "invalido" };
   }
 
   let missao;
@@ -301,14 +326,14 @@ async function gerarMissao(pedido, model, diag = []) {
     missao = JSON.parse(texto);
   } catch {
     diag.push("texto retornado não é JSON válido");
-    return null;
+    return { erro: "invalido" };
   }
 
   if (!validarMissao(missao)) {
     diag.push("JSON gerado não passou na validação (quantidades/formato)");
-    return null;
+    return { erro: "invalido" };
   }
-  return missao;
+  return { missao };
 }
 
 /* Validação da resposta da IA (quantidades e formato). */

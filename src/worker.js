@@ -184,7 +184,11 @@ export default {
       return json(missao);
     } catch (e) {
       if (e && e.status === 429) {
-        return json({ erro: "Muita gente jogando agora, tente em 1 minuto." }, 429);
+        const msg =
+          e.quota === "dia"
+            ? "Limite diário da IA gratuita atingido. Jogue uma missão salva, ou tente amanhã. 🌙"
+            : "A IA está no limite agora. Espere ~1 minuto e tente de novo — ou jogue uma missão salva. ⏳";
+        return json({ erro: msg }, 429);
       }
       return json({ erro: "Não conseguimos preparar a missão. Tente de novo." }, 502);
     }
@@ -236,7 +240,12 @@ async function gerarMissao(env, pedido) {
     return null; // erro de rede → deixa o retry tentar
   }
 
-  if (resp.status === 429) throw { status: 429 };
+  if (resp.status === 429) {
+    let texto = "";
+    try { texto = await resp.text(); } catch {}
+    const quota = /perday|per day|daily|por dia/i.test(texto) ? "dia" : "min";
+    throw { status: 429, quota };
+  }
   if (!resp.ok) return null;
 
   let dados;

@@ -285,7 +285,7 @@ function mostrarErroCarregando(e) {
   $("carregando-erro").hidden = false;
   let msg = "Algo deu errado ao preparar a missão. Tente de novo.";
   if (e && e.tipo === "limite") {
-    msg = "Muita gente jogando agora, tente em 1 minuto. ⏳";
+    msg = e.mensagem || "A IA está no limite agora. Espere ~1 minuto e tente de novo — ou jogue uma missão salva. ⏳";
   } else if (e && e.tipo === "rede") {
     msg = "Sem conexão. Verifique a internet e tente de novo.";
   } else if (e && e.tipo === "servidor") {
@@ -323,7 +323,14 @@ async function pedirMissao(req) {
     throw { tipo: "rede" };
   }
 
-  if (res.status === 429) throw { tipo: "limite" };
+  if (res.status === 429) {
+    let mensagem = null;
+    try {
+      const j = await res.json();
+      mensagem = j && j.erro;
+    } catch {}
+    throw { tipo: "limite", mensagem };
+  }
   if (res.status === 404 || res.status === 405) {
     return await carregarMock(req); // sem função de servidor: modo mock/dev
   }
