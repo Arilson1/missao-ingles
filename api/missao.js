@@ -241,11 +241,13 @@ function lerCorpoBruto(req) {
 // Modelos a tentar, em ordem. Começa pelo configurado (se houver) e cai
 // para alternativas Flash gratuitas caso algum tenha sido descontinuado.
 function modelosCandidatos() {
+  // Flash-Lite primeiro: mais rápido e com limites gratuitos maiores.
+  // Se algum não existir (404), a lógica de retry cai para o próximo.
   const lista = [
     process.env.GEMINI_MODEL,
-    "gemini-3.6-flash",
+    "gemini-2.5-flash-lite",
     "gemini-2.5-flash",
-    "gemini-flash-latest",
+    "gemini-3.6-flash",
   ];
   return [...new Set(lista.filter(Boolean))].slice(0, 4);
 }
