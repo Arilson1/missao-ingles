@@ -170,10 +170,9 @@ export default {
 
     const pedido = { tema, cenario, nivel };
 
-    // Gera com até 1 retry. O 429 é repassado imediatamente.
+    // 1 chamada só (economiza a cota gratuita). O 429 é repassado.
     try {
-      let missao = await gerarMissao(env, pedido);
-      if (!missao) missao = await gerarMissao(env, pedido); // 2ª tentativa
+      const missao = await gerarMissao(env, pedido);
       if (!missao) {
         return json({ erro: "Não conseguimos preparar a missão. Tente de novo." }, 502);
       }

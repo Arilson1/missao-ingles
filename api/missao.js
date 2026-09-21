@@ -180,20 +180,16 @@ module.exports = async function handler(req, res) {
   try {
     const modelos = modelosCandidatos();
     let missao = null;
-    for (let mi = 0; mi < modelos.length && !missao; mi++) {
-      const model = modelos[mi];
-      let erro = null;
-      for (let att = 0; att < 2 && !missao; att++) {
-        const r = await gerarMissao(pedido, model, diag);
-        if (r.missao) {
-          missao = r.missao;
-          break;
-        }
-        erro = r.erro;
-        if (erro === "modelo") break; // não retenta o mesmo modelo
+    // 1 chamada por modelo. Só passa para o próximo modelo se o atual não
+    // existir (404). Falha transitória/inválida → devolve 502 (o aluno tenta
+    // de novo), sem gastar chamadas extras na cota gratuita.
+    for (const model of modelos) {
+      const r = await gerarMissao(pedido, model, diag);
+      if (r.missao) {
+        missao = r.missao;
+        break;
       }
-      if (missao) break;
-      if (erro !== "modelo") break; // só troca de modelo em caso de descontinuação
+      if (r.erro !== "modelo") break;
     }
     if (!missao) {
       console.error("[missao] falha ao gerar:", JSON.stringify(diag));
