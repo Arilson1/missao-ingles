@@ -213,7 +213,7 @@ async function gerarMissao(env, pedido) {
     `TEMA: ${pedido.tema}`,
     linhaCenario,
     `NÍVEL: ${pedido.nivel}`,
-    `Gere 7 itens em "aprender", 6 em "praticar" e 5 a 6 etapas na missão. Cada pergunta com exatamente 4 opções.`,
+    `Gere 6 itens em "aprender", 6 em "praticar", 5 etapas na missão e 6 falas no diálogo. Cada pergunta com exatamente 4 opções. Seja conciso.`,
   ].join("\n");
 
   const body = {
@@ -222,7 +222,7 @@ async function gerarMissao(env, pedido) {
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: SCHEMA,
-      temperature: 0.9,
+      temperature: 0.7,
     },
   };
 
